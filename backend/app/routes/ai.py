@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pymongo import DESCENDING
 
 from app.config import Settings, get_settings
-from app.database import DatabaseHandle, get_db, utcnow
+from app.database import DatabaseHandle, get_db, get_optional_db, utcnow
 from app.middleware.rate_limit import ai_rate_limiter
 from app.schemas.ai import (
     AIResponseEnvelope,
@@ -86,7 +86,7 @@ async def _gather_env_snapshot(
 
 
 async def _build_user_context(
-    req_ctx: Any, user: Optional[dict], db: DatabaseHandle
+    req_ctx: Any, user: Optional[dict], db: Optional[DatabaseHandle]
 ) -> Dict[str, Any]:
     ctx: Dict[str, Any] = {
         "location_name": sanitize_text(req_ctx.location_name, 100),
@@ -106,21 +106,22 @@ async def _build_user_context(
                 "has_air_purifier": user.get("has_air_purifier", req_ctx.has_air_purifier),
             }
         )
-        members = await db.family_profiles.find({"user_id": user["id"]}).to_list(length=12)
-        if members:
-            ctx["family_members"] = [
-                {
-                    "name": m.get("name"),
-                    "member_type": m.get("member_type"),
-                    "sensitivity_notes": m.get("sensitivity_notes", ""),
-                }
-                for m in members
-            ]
+        if db is not None:
+            members = await db.family_profiles.find({"user_id": user["id"]}).to_list(length=12)
+            if members:
+                ctx["family_members"] = [
+                    {
+                        "name": m.get("name"),
+                        "member_type": m.get("member_type"),
+                        "sensitivity_notes": m.get("sensitivity_notes", ""),
+                    }
+                    for m in members
+                ]
     return ctx
 
 
 async def _record_recommendation(
-    db: DatabaseHandle,
+    db: Optional[DatabaseHandle],
     user: Optional[dict],
     kind: str,
     env_snapshot: Dict[str, Any],
@@ -128,6 +129,8 @@ async def _record_recommendation(
     ai_status: str,
     model_used: str,
 ) -> None:
+    if db is None:
+        return
     aq = env_snapshot["air_quality"]
     await db.recommendations.insert_one(
         {
@@ -186,7 +189,7 @@ async def verify_ai_endpoint(
 async def list_conversations(
     limit: int = Query(default=10, ge=1, le=50),
     current_user: dict = Depends(get_current_user),
-    db: DatabaseHandle = Depends(get_db),
+    db: Optional[DatabaseHandle] = Depends(get_optional_db),
 ):
     docs = (
         await db.conversations.find({"user_id": current_user["id"]})
@@ -204,7 +207,7 @@ async def list_conversations(
 )
 async def analyze_air(
     body: AnalyzeAirRequest,
-    db: DatabaseHandle = Depends(get_db),
+    db: Optional[DatabaseHandle] = Depends(get_optional_db),
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):
@@ -239,7 +242,7 @@ async def analyze_air(
 )
 async def chat_advisor(
     body: AdvisorChatRequest,
-    db: DatabaseHandle = Depends(get_db),
+    db: Optional[DatabaseHandle] = Depends(get_optional_db),
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):
@@ -256,7 +259,7 @@ async def chat_advisor(
 
     history: List[Dict[str, str]] = []
     conv_id = body.conversation_id
-    if user and conv_id:
+    if user and conv_id and db is not None:
         oid = parse_object_id(conv_id)
         conv = await db.conversations.find_one({"_id": oid, "user_id": user["id"]})
         if conv:
@@ -286,7 +289,7 @@ async def chat_advisor(
         },
     ]
 
-    if user:
+    if user and db is not None:
         if conv_id:
             oid = parse_object_id(conv_id)
             upd = await db.conversations.update_one(
@@ -331,7 +334,7 @@ async def chat_advisor(
 )
 async def generate_daily_routine(
     body: DailyRoutineRequest,
-    db: DatabaseHandle = Depends(get_db),
+    db: Optional[DatabaseHandle] = Depends(get_optional_db),
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):
@@ -366,7 +369,7 @@ async def generate_daily_routine(
 )
 async def generate_indoor_advice(
     body: IndoorAdviceRequest,
-    db: DatabaseHandle = Depends(get_db),
+    db: Optional[DatabaseHandle] = Depends(get_optional_db),
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):
@@ -406,7 +409,7 @@ async def generate_indoor_advice(
 )
 async def generate_sustainable_alternatives(
     body: SustainableAlternativesRequest,
-    db: DatabaseHandle = Depends(get_db),
+    db: Optional[DatabaseHandle] = Depends(get_optional_db),
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):

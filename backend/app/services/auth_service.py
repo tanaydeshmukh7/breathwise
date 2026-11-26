@@ -9,7 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pwdlib import PasswordHash
 
 from app.config import Settings, get_settings
-from app.database import DatabaseHandle, get_db
+from app.database import DatabaseHandle, get_db, get_optional_db
 from app.utils.security import parse_object_id, serialize_doc
 
 password_hash = PasswordHash.recommended()
@@ -97,10 +97,10 @@ async def get_current_user(
 
 async def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    db: DatabaseHandle = Depends(get_db),
+    db: DatabaseHandle | None = Depends(get_optional_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any] | None:
-    if credentials is None or not credentials.credentials:
+    if db is None or credentials is None or not credentials.credentials:
         return None
     try:
         payload = decode_access_token(credentials.credentials, settings)

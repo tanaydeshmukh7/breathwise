@@ -408,5 +408,15 @@ async def get_db() -> DatabaseHandle:
     return db_manager.handle
 
 
+async def get_optional_db() -> DatabaseHandle | None:
+    """Return DatabaseHandle when connected, or None so public telemetry/AI routes stay available."""
+    if db_manager.handle is None:
+        settings = get_settings()
+        await db_manager.connect(settings)
+    if db_manager.handle is not None and db_manager.handle.is_connected:
+        return db_manager.handle
+    return None
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)

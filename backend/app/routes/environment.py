@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pymongo import DESCENDING
 
 from app.config import Settings, get_settings
-from app.database import DatabaseHandle, get_db, utcnow
+from app.database import DatabaseHandle, get_optional_db, utcnow
 from app.services.environmental_provider import (
     EnvironmentalProviderError,
     get_environmental_provider,
@@ -30,7 +30,7 @@ async def get_current_aqi(
     lat: Optional[float] = Query(default=None, ge=-90, le=90),
     lon: Optional[float] = Query(default=None, ge=-180, le=180),
     city: Optional[str] = Query(default=None, max_length=100),
-    db: DatabaseHandle = Depends(get_db),
+    db: Optional[DatabaseHandle] = Depends(get_optional_db),
     settings: Settings = Depends(get_settings),
 ):
     latitude, longitude = _resolve_coords(lat, lon, settings)
@@ -49,30 +49,31 @@ async def get_current_aqi(
         ) from exc
 
     # Persist reading snapshot to aqi_history (best-effort)
-    location_key = f"{round(latitude, 2)}:{round(longitude, 2)}"
-    recorded_at = reading.get("timestamp") or utcnow().isoformat()
-    existing = await db.aqi_history.find_one(
-        {"location_key": location_key, "recorded_at": recorded_at}
-    )
-    if not existing:
-        await db.aqi_history.insert_one(
-            {
-                "location_key": location_key,
-                "location_name": reading["location"]["name"],
-                "latitude": latitude,
-                "longitude": longitude,
-                "recorded_at": recorded_at,
-                "data_source": reading["data_source"],
-                "indian_naqi": reading["indices"]["indian_naqi"]["value"],
-                "indian_naqi_category": reading["indices"]["indian_naqi"]["category"],
-                "us_aqi": reading["indices"]["us_aqi"]["value"],
-                "pm2_5": reading["pollutants"]["pm2_5"]["value"],
-                "pm10": reading["pollutants"]["pm10"]["value"],
-                "nitrogen_dioxide": reading["pollutants"]["nitrogen_dioxide"]["value"],
-                "ozone": reading["pollutants"]["ozone"]["value"],
-                "created_at": utcnow(),
-            }
+    if db is not None:
+        location_key = f"{round(latitude, 2)}:{round(longitude, 2)}"
+        recorded_at = reading.get("timestamp") or utcnow().isoformat()
+        existing = await db.aqi_history.find_one(
+            {"location_key": location_key, "recorded_at": recorded_at}
         )
+        if not existing:
+            await db.aqi_history.insert_one(
+                {
+                    "location_key": location_key,
+                    "location_name": reading["location"]["name"],
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "recorded_at": recorded_at,
+                    "data_source": reading["data_source"],
+                    "indian_naqi": reading["indices"]["indian_naqi"]["value"],
+                    "indian_naqi_category": reading["indices"]["indian_naqi"]["category"],
+                    "us_aqi": reading["indices"]["us_aqi"]["value"],
+                    "pm2_5": reading["pollutants"]["pm2_5"]["value"],
+                    "pm10": reading["pollutants"]["pm10"]["value"],
+                    "nitrogen_dioxide": reading["pollutants"]["nitrogen_dioxide"]["value"],
+                    "ozone": reading["pollutants"]["ozone"]["value"],
+                    "created_at": utcnow(),
+                }
+            )
 
     return reading
 
@@ -104,20 +105,23 @@ async def get_aqi_history(
     lon: Optional[float] = Query(default=None, ge=-180, le=180),
     limit: int = Query(default=24, ge=1, le=168),
     page: int = Query(default=1, ge=1),
-    db: DatabaseHandle = Depends(get_db),
+    db: Optional[DatabaseHandle] = Depends(get_optional_db),
     settings: Settings = Depends(get_settings),
 ):
     latitude, longitude = _resolve_coords(lat, lon, settings)
     location_key = f"{round(latitude, 2)}:{round(longitude, 2)}"
-    skip = (page - 1) * limit
-    cursor = (
-        db.aqi_history.find({"location_key": location_key})
-        .sort("recorded_at", DESCENDING)
-        .skip(skip)
-        .limit(limit)
-    )
-    stored = [serialize_doc(doc) for doc in await cursor.to_list(length=limit)]
-    total = await db.aqi_history.count_documents({"location_key": location_key})
+    stored = []
+    total = 0
+    if db is not None:
+        skip = (page - 1) * limit
+        cursor = (
+            db.aqi_history.find({"location_key": location_key})
+            .sort("recorded_at", DESCENDING)
+            .skip(skip)
+            .limit(limit)
+        )
+        stored = [serialize_doc(doc) for doc in await cursor.to_list(length=limit)]
+        total = await db.aqi_history.count_documents({"location_key": location_key})
 
     # Also return past-days series from Open-Meteo so users see historical hourly context immediately
     provider = get_environmental_provider(settings)
