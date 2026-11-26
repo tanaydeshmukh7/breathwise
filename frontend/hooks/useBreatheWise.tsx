@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { MotionConfig } from "framer-motion";
 import { api } from "@/lib/api";
 import { DEFAULT_LOCATION } from "@/lib/constants";
 import {
@@ -238,7 +239,7 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
         refreshEnvironment,
       }}
     >
-      {children}
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
     </BreatheWiseContext.Provider>
   );
 }

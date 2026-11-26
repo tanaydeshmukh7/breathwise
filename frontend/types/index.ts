@@ -50,6 +50,7 @@ export interface AirQualityResponse {
       sub_indices: Record<string, number>;
       methodology: string;
       note: string;
+      health_implication?: string;
     };
     us_aqi: {
       value: number | null;
@@ -58,6 +59,7 @@ export interface AirQualityResponse {
       color: string;
       methodology: string;
       note: string;
+      health_implication?: string;
     };
     european_aqi: {
       value: number | null;
@@ -183,6 +185,16 @@ export interface SustainableAlternativeItem {
 export interface StructuredSustainableOutput {
   summary: string;
   alternatives: SustainableAlternativeItem[];
+}
+
+export interface UserContextPayload {
+  location_name: string;
+  latitude: number;
+  longitude: number;
+  household_context: HouseholdContext;
+  lifestyle_notes?: string;
+  has_air_purifier?: boolean;
+  model_id?: string;
 }
 
 export interface AIResponseEnvelope<T> {

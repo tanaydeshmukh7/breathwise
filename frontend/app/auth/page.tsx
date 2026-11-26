@@ -59,8 +59,14 @@ export default function AuthPage() {
       </Link>
 
       <div className="w-full max-w-md bw-surface rounded-2xl p-6 sm:p-8 shadow-glass space-y-6">
-        <div className="flex rounded-xl bg-bw-secondary border border-white/10 p-1 text-xs">
+        <div
+          role="group"
+          aria-label="Authentication mode"
+          className="flex rounded-xl bg-bw-secondary border border-white/10 p-1 text-xs"
+        >
           <button
+            type="button"
+            aria-pressed={mode === "login"}
             onClick={() => setMode("login")}
             className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
               mode === "login"
@@ -71,6 +77,8 @@ export default function AuthPage() {
             Sign In
           </button>
           <button
+            type="button"
+            aria-pressed={mode === "register"}
             onClick={() => setMode("register")}
             className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
               mode === "register"
@@ -86,12 +94,19 @@ export default function AuthPage() {
           {mode === "register" && (
             <>
               <div>
-                <label className="text-xs text-bw-muted block mb-1">
+                <label
+                  htmlFor="auth-full-name"
+                  className="text-xs text-bw-muted block mb-1"
+                >
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="h-4 w-4 text-bw-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                  <User
+                    className="h-4 w-4 text-bw-muted absolute left-3 top-1/2 -translate-y-1/2"
+                    aria-hidden="true"
+                  />
                   <input
+                    id="auth-full-name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -104,10 +119,14 @@ export default function AuthPage() {
               </div>
 
               <div>
-                <label className="text-xs text-bw-muted block mb-1">
+                <label
+                  htmlFor="auth-city"
+                  className="text-xs text-bw-muted block mb-1"
+                >
                   Primary City
                 </label>
                 <input
+                  id="auth-city"
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
@@ -119,10 +138,19 @@ export default function AuthPage() {
           )}
 
           <div>
-            <label className="text-xs text-bw-muted block mb-1">Email</label>
+            <label
+              htmlFor="auth-email"
+              className="text-xs text-bw-muted block mb-1"
+            >
+              Email
+            </label>
             <div className="relative">
-              <Mail className="h-4 w-4 text-bw-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <Mail
+                className="h-4 w-4 text-bw-muted absolute left-3 top-1/2 -translate-y-1/2"
+                aria-hidden="true"
+              />
               <input
+                id="auth-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -134,10 +162,19 @@ export default function AuthPage() {
           </div>
 
           <div>
-            <label className="text-xs text-bw-muted block mb-1">Password</label>
+            <label
+              htmlFor="auth-password"
+              className="text-xs text-bw-muted block mb-1"
+            >
+              Password
+            </label>
             <div className="relative">
-              <Lock className="h-4 w-4 text-bw-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <Lock
+                className="h-4 w-4 text-bw-muted absolute left-3 top-1/2 -translate-y-1/2"
+                aria-hidden="true"
+              />
               <input
+                id="auth-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -150,7 +187,11 @@ export default function AuthPage() {
           </div>
 
           {error && (
-            <div className="rounded-lg border border-bw-danger/30 bg-bw-danger/10 px-3 py-2 text-xs text-bw-danger">
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="rounded-lg border border-bw-danger/30 bg-bw-danger/10 px-3 py-2 text-xs text-bw-danger"
+            >
               {error}
             </div>
           )}

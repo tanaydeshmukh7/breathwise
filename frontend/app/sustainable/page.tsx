@@ -94,19 +94,29 @@ export default function SustainablePage() {
             </p>
           </div>
           <button
+            type="button"
             onClick={loadAlternatives}
             disabled={loading}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-bw-secondary border border-white/10 text-xs font-medium hover:border-white/25 self-start"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              aria-hidden="true"
+            />
             Refresh Suggestions
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div
+          role="group"
+          aria-label="Filter alternatives by category"
+          className="flex flex-wrap gap-2"
+        >
           {CATEGORIES.map((c) => (
             <button
               key={c.key}
+              type="button"
+              aria-pressed={category === c.key}
               onClick={() => setCategory(c.key)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 category === c.key

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { AlertTriangle, RefreshCw, Sparkles } from "lucide-react";
 
 export function BrandMark({ className = "h-7 w-7" }: { className?: string }) {
@@ -9,6 +10,7 @@ export function BrandMark({ className = "h-7 w-7" }: { className?: string }) {
       viewBox="0 0 36 36"
       fill="none"
       className={className}
+      role="img"
       aria-label="BreatheWise logo"
     >
       <rect
@@ -38,9 +40,21 @@ export function BrandMark({ className = "h-7 w-7" }: { className?: string }) {
   );
 }
 
-export function LoadingCard({ lines = 3 }: { lines?: number }) {
+export function LoadingCard({
+  lines = 3,
+  label = "Loading environmental intelligence",
+}: {
+  lines?: number;
+  label?: string;
+}) {
   return (
-    <div className="bw-surface rounded-xl p-6 animate-pulse space-y-3">
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={label}
+      className="bw-surface rounded-xl p-6 animate-pulse space-y-3"
+    >
+      <span className="sr-only">{label}</span>
       <div className="h-4 w-1/3 rounded bg-white/10" />
       {Array.from({ length: lines }).map((_, idx) => (
         <div
@@ -63,9 +77,13 @@ export function UnavailableBanner({
   onRetry?: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-bw-danger/30 bg-bw-danger/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div
+      role="alert"
+      aria-live="assertive"
+      className="rounded-xl border border-bw-danger/30 bg-bw-danger/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+    >
       <div className="flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-bw-danger shrink-0 mt-0.5" />
+        <AlertTriangle className="h-5 w-5 text-bw-danger shrink-0 mt-0.5" aria-hidden="true" />
         <div>
           <h3 className="text-sm font-semibold text-bw-text">{title}</h3>
           <p className="text-xs text-bw-muted mt-1 leading-relaxed">{message}</p>
@@ -73,13 +91,37 @@ export function UnavailableBanner({
       </div>
       {onRetry && (
         <button
+          type="button"
           onClick={onRetry}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/10 bg-bw-secondary hover:bg-white/5 text-xs font-medium text-bw-text shrink-0 transition-colors"
         >
-          <RefreshCw className="h-3.5 w-3.5" />
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           Retry
         </button>
       )}
+    </div>
+  );
+}
+
+export function AuthPromptCard({
+  title,
+  description,
+  ctaLabel = "Sign In / Create Account",
+}: {
+  title: string;
+  description: string;
+  ctaLabel?: string;
+}) {
+  return (
+    <div className="bw-surface rounded-2xl p-8 text-center space-y-4">
+      <h2 className="text-lg font-semibold text-bw-text">{title}</h2>
+      <p className="text-sm text-bw-muted max-w-md mx-auto">{description}</p>
+      <Link
+        href="/auth"
+        className="inline-flex items-center px-5 py-2.5 rounded-xl bg-bw-accent text-bw-bg text-sm font-semibold hover:opacity-90"
+      >
+        {ctaLabel}
+      </Link>
     </div>
   );
 }
@@ -114,14 +156,12 @@ export function AiSourceBadge({
     >
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="inline-flex items-center gap-1.5 font-medium">
-          <Sparkles className="h-3.5 w-3.5" />
+          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
           {isLive
             ? liveLabel
             : `Verified-Data Deterministic Fallback (${modelUsed} unavailable)`}
         </span>
-        <span className="font-mono text-[11px] opacity-80">
-          {providerTag}
-        </span>
+        <span className="font-mono text-[11px]">{providerTag}</span>
       </div>
       {!isLive && fallbackReason && (
         <p className="text-[11px] text-bw-muted leading-snug">{fallbackReason}</p>

@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pymongo import DESCENDING
+from pymongo.errors import PyMongoError
 
 from app.config import Settings, get_settings
 from app.database import DatabaseHandle, get_optional_db, utcnow
@@ -50,30 +51,33 @@ async def get_current_aqi(
 
     # Persist reading snapshot to aqi_history (best-effort)
     if db is not None:
-        location_key = f"{round(latitude, 2)}:{round(longitude, 2)}"
-        recorded_at = reading.get("timestamp") or utcnow().isoformat()
-        existing = await db.aqi_history.find_one(
-            {"location_key": location_key, "recorded_at": recorded_at}
-        )
-        if not existing:
-            await db.aqi_history.insert_one(
-                {
-                    "location_key": location_key,
-                    "location_name": reading["location"]["name"],
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "recorded_at": recorded_at,
-                    "data_source": reading["data_source"],
-                    "indian_naqi": reading["indices"]["indian_naqi"]["value"],
-                    "indian_naqi_category": reading["indices"]["indian_naqi"]["category"],
-                    "us_aqi": reading["indices"]["us_aqi"]["value"],
-                    "pm2_5": reading["pollutants"]["pm2_5"]["value"],
-                    "pm10": reading["pollutants"]["pm10"]["value"],
-                    "nitrogen_dioxide": reading["pollutants"]["nitrogen_dioxide"]["value"],
-                    "ozone": reading["pollutants"]["ozone"]["value"],
-                    "created_at": utcnow(),
-                }
+        try:
+            location_key = f"{round(latitude, 2)}:{round(longitude, 2)}"
+            recorded_at = reading.get("timestamp") or utcnow().isoformat()
+            existing = await db.aqi_history.find_one(
+                {"location_key": location_key, "recorded_at": recorded_at}
             )
+            if not existing:
+                await db.aqi_history.insert_one(
+                    {
+                        "location_key": location_key,
+                        "location_name": reading["location"]["name"],
+                        "latitude": latitude,
+                        "longitude": longitude,
+                        "recorded_at": recorded_at,
+                        "data_source": reading["data_source"],
+                        "indian_naqi": reading["indices"]["indian_naqi"]["value"],
+                        "indian_naqi_category": reading["indices"]["indian_naqi"]["category"],
+                        "us_aqi": reading["indices"]["us_aqi"]["value"],
+                        "pm2_5": reading["pollutants"]["pm2_5"]["value"],
+                        "pm10": reading["pollutants"]["pm10"]["value"],
+                        "nitrogen_dioxide": reading["pollutants"]["nitrogen_dioxide"]["value"],
+                        "ozone": reading["pollutants"]["ozone"]["value"],
+                        "created_at": utcnow(),
+                    }
+                )
+        except PyMongoError:
+            pass
 
     return reading
 

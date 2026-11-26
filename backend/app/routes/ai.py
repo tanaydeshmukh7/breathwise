@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
-from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from pymongo import DESCENDING
+from pymongo.errors import PyMongoError
 
 from app.config import Settings, get_settings
 from app.database import DatabaseHandle, get_db, get_optional_db, utcnow
 from app.middleware.rate_limit import ai_rate_limiter
 from app.schemas.ai import (
     AIResponseEnvelope,
+    AIStatus,
     AdvisorChatRequest,
     AnalyzeAirRequest,
     DailyRoutineRequest,
@@ -72,7 +74,8 @@ async def _gather_env_snapshot(
         best_pt = min(valid_points, key=lambda p: p["indian_naqi"]) if valid_points else None
         worst_pt = max(valid_points, key=lambda p: p["indian_naqi"]) if valid_points else None
         best_window = (
-            f"Around {str(best_pt['time']).split('T')[-1]} (forecast Indian NAQI {best_pt['indian_naqi']}, PM2.5 {best_pt['pm2_5']} μg/m³)"
+            f"Around {str(best_pt['time']).split('T')[-1]} "
+            f"(forecast Indian NAQI {best_pt['indian_naqi']}, PM2.5 {best_pt['pm2_5']} μg/m³)"
             if best_pt
             else "Check hourly chart"
         )
@@ -132,19 +135,22 @@ async def _record_recommendation(
     if db is None:
         return
     aq = env_snapshot["air_quality"]
-    await db.recommendations.insert_one(
-        {
-            "user_id": user["id"] if user else None,
-            "kind": kind,
-            "location_name": aq["location"]["name"],
-            "indian_naqi": aq["indices"]["indian_naqi"]["value"],
-            "us_aqi": aq["indices"]["us_aqi"]["value"],
-            "ai_status": ai_status,
-            "model_used": model_used,
-            "result": result_dict,
-            "created_at": utcnow(),
-        }
-    )
+    try:
+        await db.recommendations.insert_one(
+            {
+                "user_id": user["id"] if user else None,
+                "kind": kind,
+                "location_name": aq["location"]["name"],
+                "indian_naqi": aq["indices"]["indian_naqi"]["value"],
+                "us_aqi": aq["indices"]["us_aqi"]["value"],
+                "ai_status": ai_status,
+                "model_used": model_used,
+                "result": result_dict,
+                "created_at": utcnow(),
+            }
+        )
+    except PyMongoError:
+        pass
 
 
 def _provider_label(settings: Settings) -> str:
@@ -152,6 +158,47 @@ def _provider_label(settings: Settings) -> str:
         "google_gemini"
         if settings.active_ai_provider == "gemini"
         else "huggingface_router"
+    )
+
+
+async def _execute_ai_endpoint(
+    body: Any,
+    kind: str,
+    include_forecast: bool,
+    runner: Callable[
+        [AIService, Dict[str, Any], Dict[str, Any], Optional[Dict[str, Any]]],
+        Awaitable[Tuple[BaseModel, AIStatus, str, Optional[str]]],
+    ],
+    db: Optional[DatabaseHandle],
+    settings: Settings,
+    user: Optional[dict],
+) -> AIResponseEnvelope:
+    """Shared pipeline for grounded AI endpoints: fetch live data, invoke AI, record & envelope."""
+    env_snapshot, forecast_summary = await _gather_env_snapshot(
+        body.latitude,
+        body.longitude,
+        body.location_name,
+        settings,
+        include_forecast=include_forecast,
+    )
+    user_ctx = await _build_user_context(body, user, db)
+    ai = AIService(settings)
+    result, ai_status, model_used, err = await runner(
+        ai, env_snapshot, user_ctx, forecast_summary
+    )
+    result_dict = result.model_dump()
+    await _record_recommendation(
+        db, user, kind, env_snapshot, result_dict, ai_status, model_used
+    )
+    return AIResponseEnvelope(
+        ai_status=ai_status,
+        model_used=model_used,
+        provider=_provider_label(settings),
+        fallback_reason=err,
+        data_source=env_snapshot["air_quality"]["data_source"],
+        reading_timestamp=env_snapshot["air_quality"]["timestamp"],
+        environmental_snapshot=env_snapshot,
+        result=result_dict,
     )
 
 
@@ -189,7 +236,7 @@ async def verify_ai_endpoint(
 async def list_conversations(
     limit: int = Query(default=10, ge=1, le=50),
     current_user: dict = Depends(get_current_user),
-    db: Optional[DatabaseHandle] = Depends(get_optional_db),
+    db: DatabaseHandle = Depends(get_db),
 ):
     docs = (
         await db.conversations.find({"user_id": current_user["id"]})
@@ -211,27 +258,16 @@ async def analyze_air(
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):
-    env_snapshot, _ = await _gather_env_snapshot(
-        body.latitude, body.longitude, body.location_name, settings, include_forecast=False
-    )
-    user_ctx = await _build_user_context(body, user, db)
-    ai = AIService(settings)
-    result, ai_status, model_used, err = await ai.analyze_air_quality(
-        env_snapshot, user_ctx, requested_model=body.model_id
-    )
-    result_dict = result.model_dump()
-    await _record_recommendation(
-        db, user, "air_analysis", env_snapshot, result_dict, ai_status, model_used
-    )
-    return AIResponseEnvelope(
-        ai_status=ai_status,  # type: ignore[arg-type]
-        model_used=model_used,
-        provider=_provider_label(settings),
-        fallback_reason=err,
-        data_source=env_snapshot["air_quality"]["data_source"],
-        reading_timestamp=env_snapshot["air_quality"]["timestamp"],
-        environmental_snapshot=env_snapshot,
-        result=result_dict,
+    return await _execute_ai_endpoint(
+        body=body,
+        kind="air_analysis",
+        include_forecast=False,
+        runner=lambda ai, env, ctx, _: ai.analyze_air_quality(
+            env, ctx, requested_model=body.model_id
+        ),
+        db=db,
+        settings=settings,
+        user=user,
     )
 
 
@@ -315,7 +351,7 @@ async def chat_advisor(
             conv_id = str(ins.inserted_id)
 
     return AIResponseEnvelope(
-        ai_status=ai_status,  # type: ignore[arg-type]
+        ai_status=ai_status,
         model_used=model_used,
         provider=_provider_label(settings),
         fallback_reason=err,
@@ -338,27 +374,16 @@ async def generate_daily_routine(
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):
-    env_snapshot, forecast_summary = await _gather_env_snapshot(
-        body.latitude, body.longitude, body.location_name, settings, include_forecast=True
-    )
-    user_ctx = await _build_user_context(body, user, db)
-    ai = AIService(settings)
-    result, ai_status, model_used, err = await ai.generate_daily_routine(
-        env_snapshot, user_ctx, forecast_summary or {}, requested_model=body.model_id
-    )
-    result_dict = result.model_dump()
-    await _record_recommendation(
-        db, user, "daily_routine", env_snapshot, result_dict, ai_status, model_used
-    )
-    return AIResponseEnvelope(
-        ai_status=ai_status,  # type: ignore[arg-type]
-        model_used=model_used,
-        provider=_provider_label(settings),
-        fallback_reason=err,
-        data_source=env_snapshot["air_quality"]["data_source"],
-        reading_timestamp=env_snapshot["air_quality"]["timestamp"],
-        environmental_snapshot=env_snapshot,
-        result=result_dict,
+    return await _execute_ai_endpoint(
+        body=body,
+        kind="daily_routine",
+        include_forecast=True,
+        runner=lambda ai, env, ctx, fc: ai.generate_daily_routine(
+            env, ctx, fc or {}, requested_model=body.model_id
+        ),
+        db=db,
+        settings=settings,
+        user=user,
     )
 
 
@@ -373,32 +398,21 @@ async def generate_indoor_advice(
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):
-    env_snapshot, _ = await _gather_env_snapshot(
-        body.latitude, body.longitude, body.location_name, settings, include_forecast=False
-    )
-    user_ctx = await _build_user_context(body, user, db)
     indoor_ctx = {
         "cooking_fuel": body.cooking_fuel,
         "uses_incense_or_dhoop": body.uses_incense_or_dhoop,
         "has_air_purifier": body.has_air_purifier,
     }
-    ai = AIService(settings)
-    result, ai_status, model_used, err = await ai.generate_indoor_advice(
-        env_snapshot, user_ctx, indoor_ctx, requested_model=body.model_id
-    )
-    result_dict = result.model_dump()
-    await _record_recommendation(
-        db, user, "indoor_advice", env_snapshot, result_dict, ai_status, model_used
-    )
-    return AIResponseEnvelope(
-        ai_status=ai_status,  # type: ignore[arg-type]
-        model_used=model_used,
-        provider=_provider_label(settings),
-        fallback_reason=err,
-        data_source=env_snapshot["air_quality"]["data_source"],
-        reading_timestamp=env_snapshot["air_quality"]["timestamp"],
-        environmental_snapshot=env_snapshot,
-        result=result_dict,
+    return await _execute_ai_endpoint(
+        body=body,
+        kind="indoor_advice",
+        include_forecast=False,
+        runner=lambda ai, env, ctx, _: ai.generate_indoor_advice(
+            env, ctx, indoor_ctx, requested_model=body.model_id
+        ),
+        db=db,
+        settings=settings,
+        user=user,
     )
 
 
@@ -413,34 +427,17 @@ async def generate_sustainable_alternatives(
     settings: Settings = Depends(get_settings),
     user: Optional[dict] = Depends(get_optional_user),
 ):
-    env_snapshot, _ = await _gather_env_snapshot(
-        body.latitude, body.longitude, body.location_name, settings, include_forecast=False
-    )
-    user_ctx = await _build_user_context(body, user, db)
-    ai = AIService(settings)
-    result, ai_status, model_used, err = await ai.generate_sustainable_alternatives(
-        env_snapshot,
-        user_ctx,
-        focus_category=body.focus_category,
-        requested_model=body.model_id,
-    )
-    result_dict = result.model_dump()
-    await _record_recommendation(
-        db,
-        user,
-        "sustainable_alternatives",
-        env_snapshot,
-        result_dict,
-        ai_status,
-        model_used,
-    )
-    return AIResponseEnvelope(
-        ai_status=ai_status,  # type: ignore[arg-type]
-        model_used=model_used,
-        provider=_provider_label(settings),
-        fallback_reason=err,
-        data_source=env_snapshot["air_quality"]["data_source"],
-        reading_timestamp=env_snapshot["air_quality"]["timestamp"],
-        environmental_snapshot=env_snapshot,
-        result=result_dict,
+    return await _execute_ai_endpoint(
+        body=body,
+        kind="sustainable_alternatives",
+        include_forecast=False,
+        runner=lambda ai, env, ctx, _: ai.generate_sustainable_alternatives(
+            env,
+            ctx,
+            focus_category=body.focus_category,
+            requested_model=body.model_id,
+        ),
+        db=db,
+        settings=settings,
+        user=user,
     )

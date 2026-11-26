@@ -4,7 +4,6 @@ import {
   AirQualityForecastResponse,
   AirQualityResponse,
   FamilyMember,
-  HouseholdContext,
   ImpactAction,
   ImpactSummary,
   LocationSearchResult,
@@ -13,6 +12,7 @@ import {
   StructuredDailyRoutineOutput,
   StructuredIndoorOutput,
   StructuredSustainableOutput,
+  UserContextPayload,
   UserProfile,
   WeatherResponse,
 } from "@/types";
@@ -102,18 +102,7 @@ export const api = {
       configured: boolean;
     }>("/api/ai/models"),
 
-  analyzeAir: (
-    payload: {
-      location_name: string;
-      latitude: number;
-      longitude: number;
-      household_context: HouseholdContext;
-      lifestyle_notes?: string;
-      has_air_purifier?: boolean;
-      model_id?: string;
-    },
-    token?: string | null
-  ) =>
+  analyzeAir: (payload: UserContextPayload, token?: string | null) =>
     request<AIResponseEnvelope<StructuredAdvisorOutput>>(
       "/api/ai/analyze",
       { method: "POST", body: JSON.stringify(payload) },
@@ -121,16 +110,9 @@ export const api = {
     ),
 
   chatAdvisor: (
-    payload: {
+    payload: UserContextPayload & {
       message: string;
       conversation_id?: string | null;
-      location_name: string;
-      latitude: number;
-      longitude: number;
-      household_context: HouseholdContext;
-      lifestyle_notes?: string;
-      has_air_purifier?: boolean;
-      model_id?: string;
     },
     token?: string | null
   ) =>
@@ -140,18 +122,7 @@ export const api = {
       token
     ),
 
-  generateDailyRoutine: (
-    payload: {
-      location_name: string;
-      latitude: number;
-      longitude: number;
-      household_context: HouseholdContext;
-      lifestyle_notes?: string;
-      has_air_purifier?: boolean;
-      model_id?: string;
-    },
-    token?: string | null
-  ) =>
+  generateDailyRoutine: (payload: UserContextPayload, token?: string | null) =>
     request<AIResponseEnvelope<StructuredDailyRoutineOutput>>(
       "/api/ai/daily-routine",
       { method: "POST", body: JSON.stringify(payload) },
@@ -159,15 +130,10 @@ export const api = {
     ),
 
   generateIndoorAdvice: (
-    payload: {
-      location_name: string;
-      latitude: number;
-      longitude: number;
-      household_context: HouseholdContext;
+    payload: UserContextPayload & {
       has_air_purifier: boolean;
       cooking_fuel: "lpg_induction" | "mixed" | "solid_biomass";
       uses_incense_or_dhoop: boolean;
-      model_id?: string;
     },
     token?: string | null
   ) =>
@@ -178,14 +144,7 @@ export const api = {
     ),
 
   generateSustainableAlternatives: (
-    payload: {
-      location_name: string;
-      latitude: number;
-      longitude: number;
-      household_context: HouseholdContext;
-      focus_category?: string;
-      model_id?: string;
-    },
+    payload: UserContextPayload & { focus_category?: string },
     token?: string | null
   ) =>
     request<AIResponseEnvelope<StructuredSustainableOutput>>(

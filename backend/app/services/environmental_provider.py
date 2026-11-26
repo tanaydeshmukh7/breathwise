@@ -87,11 +87,8 @@ class OpenMeteoProvider(EnvironmentalDataProvider):
     def _compute_freshness(reading_time: Optional[str]) -> str:
         if not reading_time:
             return "Unknown timestamp"
-        try:
-            # Open-Meteo returns local ISO timestamp like '2026-11-26T09:30'
-            return f"Updated at {reading_time} (local)"
-        except Exception:
-            return "Timestamp available"
+        # Open-Meteo returns local ISO timestamp like '2026-11-26T09:30'
+        return f"Updated at {reading_time} (local)"
 
     async def get_current_air_quality(
         self, latitude: float, longitude: float, location_name: Optional[str] = None
@@ -185,6 +182,7 @@ class OpenMeteoProvider(EnvironmentalDataProvider):
                     "sub_indices": indian_naqi.sub_indices,
                     "methodology": indian_naqi.methodology,
                     "note": indian_naqi.note,
+                    "health_implication": indian_naqi.health_implication,
                 },
                 "us_aqi": {
                     "value": int(us_aqi_val) if us_aqi_val is not None else None,
@@ -368,7 +366,5 @@ def _safe_at(arr: Optional[List[Any]], idx: int) -> Any:
     return arr[idx]
 
 
-def get_environmental_provider(settings: Settings) -> EnvironmentalDataProvider:
-    if settings.ENVIRONMENTAL_PROVIDER == "open_meteo":
-        return OpenMeteoProvider()
+def get_environmental_provider(_: Settings) -> EnvironmentalDataProvider:
     return OpenMeteoProvider()

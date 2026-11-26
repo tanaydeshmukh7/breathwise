@@ -83,7 +83,12 @@ def test_extract_json_handles_fences_and_think_tags():
 
 @pytest.mark.asyncio
 async def test_gemini_fallback_when_api_key_missing():
-    settings = Settings(AI_PROVIDER="gemini", GEMINI_API_KEY="", ENVIRONMENT="development")
+    settings = Settings(
+        AI_PROVIDER="gemini",
+        GEMINI_API_KEY="",
+        GEMINI_MODEL="gemini-2.5-flash",
+        ENVIRONMENT="development",
+    )
     svc = AIService(settings)
     out, status_str, model_used, err = await svc.analyze_air_quality(
         _sample_env(), {"household_context": "family_with_children"}
@@ -335,3 +340,148 @@ async def test_legacy_huggingface_errors_retained_without_substitution(
     assert model_used == "Qwen/Qwen2.5-72B-Instruct"
     assert expected_substr in (err or "")
     assert mock_create.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_gemini_indoor_sustainable_and_impact_features(monkeypatch):
+    settings = Settings(
+        AI_PROVIDER="gemini",
+        GEMINI_API_KEY="AIzaDummyTestKey",
+        GEMINI_MODEL="gemini-2.5-flash",
+        ENVIRONMENT="development",
+    )
+    svc = AIService(settings)
+
+    indoor_resp = MagicMock()
+    indoor_resp.text = json.dumps(
+        {
+            "ventilation_verdict": "brief_cross_ventilation",
+            "summary": "Keep windows shut during traffic peaks and vent kitchens.",
+            "key_steps": [
+                "Run chimney before frying",
+                "Use damp mop instead of dry broom",
+            ],
+            "room_guidance": [
+                {
+                    "room": "Kitchen",
+                    "ventilation_action": "Run exhaust chimney during cooking",
+                    "filtration_and_dust": "Wipe counters damp after cooking",
+                    "priority": "high",
+                }
+            ],
+            "sensor_disclaimer": "Ambient sensor only; indoor PM2.5 is not directly measured.",
+        }
+    )
+    mock_client, _ = _mock_gemini_client(indoor_resp)
+    monkeypatch.setattr(svc, "_create_gemini_client", lambda: mock_client)
+
+    indoor_out, indoor_status, _, err = await svc.generate_indoor_advice(
+        _sample_env(),
+        {"household_context": "family_with_children", "has_air_purifier": True},
+        {"has_air_purifier": True, "cooking_fuel": "lpg_induction", "uses_incense": False},
+    )
+    assert indoor_status == "live_gemini"
+    assert err is None
+    assert indoor_out.ventilation_verdict == "brief_cross_ventilation"
+    assert len(indoor_out.key_steps) == 2
+
+    sustain_resp = MagicMock()
+    sustain_resp.text = json.dumps(
+        {
+            "summary": "Target daily transport and appliance efficiency.",
+            "alternatives": [
+                {
+                    "category": "transportation",
+                    "current_behavior": "Solo petrol scooter commute",
+                    "suggested_alternative": "Metro + feeder walk",
+                    "why_it_matters": "Reduces kerbside tailpipe exposure during rush hour",
+                    "potential_benefit": "Cuts urban tailpipe NO2 and PM2.5",
+                    "practical_difficulty": "easy",
+                },
+                {
+                    "category": "energy",
+                    "current_behavior": "Keeping standby appliances powered overnight",
+                    "suggested_alternative": "Turn off standby strips and raise AC cooling by 1°C",
+                    "why_it_matters": "Reduces peak grid electricity demand",
+                    "potential_benefit": "Lowers household electricity consumption",
+                    "practical_difficulty": "easy",
+                },
+                {
+                    "category": "household",
+                    "current_behavior": "Dry sweeping dusty balcony floors",
+                    "suggested_alternative": "Switch to damp microfiber mopping",
+                    "why_it_matters": "Avoids resuspending coarse particulate dust indoors",
+                    "potential_benefit": "Lower indoor coarse particle resuspension",
+                    "practical_difficulty": "easy",
+                },
+            ],
+        }
+    )
+    mock_client2, _ = _mock_gemini_client(sustain_resp)
+    monkeypatch.setattr(svc, "_create_gemini_client", lambda: mock_client2)
+
+    sustain_out, sustain_status, _, _ = await svc.generate_sustainable_alternatives(
+        _sample_env(), {"household_context": "commuter"}, focus_category="transportation"
+    )
+    assert sustain_status == "live_gemini"
+    assert len(sustain_out.alternatives) == 3
+    assert sustain_out.alternatives[0].category == "transportation"
+
+    impact_resp = MagicMock()
+    impact_resp.text = json.dumps(
+        {
+            "summary": "Estimated 12.4 kg CO2e avoided across 6 logged actions.",
+            "risk_level": "low",
+            "precautionary_note": "Factor-based CO2e estimate only.",
+            "recommendations": [
+                {
+                    "title": "Keep metro streak going",
+                    "reason": "Consistent transit shift avoids recurring emissions.",
+                    "action": "Log transit days weekly.",
+                    "priority": "medium",
+                }
+            ],
+        }
+    )
+    mock_client3, _ = _mock_gemini_client(impact_resp)
+    monkeypatch.setattr(svc, "_create_gemini_client", lambda: mock_client3)
+
+    impact_out, impact_status, _, _ = await svc.explain_impact(
+        {"total_actions": 6, "total_estimated_co2e_avoided_kg": 12.4},
+        {"household_context": "general"},
+    )
+    assert impact_status == "live_gemini"
+    assert "12.4" in impact_out.summary
+
+
+@pytest.mark.asyncio
+async def test_indoor_sustainable_and_impact_fallbacks_when_key_missing():
+    settings = Settings(
+        AI_PROVIDER="gemini",
+        GEMINI_API_KEY="",
+        GEMINI_MODEL="gemini-2.5-flash",
+        ENVIRONMENT="development",
+    )
+    svc = AIService(settings)
+
+    indoor_out, indoor_status, _, _ = await svc.generate_indoor_advice(
+        _sample_env(),
+        {"household_context": "general"},
+        {"has_air_purifier": False, "cooking_fuel": "solid_biomass", "uses_incense": True},
+    )
+    assert indoor_status == "rule_based_fallback"
+    assert len(indoor_out.key_steps) >= 2
+    assert len(indoor_out.room_guidance) >= 1
+
+    sustain_out, sustain_status, _, _ = await svc.generate_sustainable_alternatives(
+        _sample_env(), {"household_context": "general"}, focus_category="energy"
+    )
+    assert sustain_status == "rule_based_fallback"
+    assert len(sustain_out.alternatives) >= 1
+
+    impact_out, impact_status, _, _ = await svc.explain_impact(
+        {"total_actions": 3, "total_estimated_co2e_avoided_kg": 4.2},
+        {"household_context": "general"},
+    )
+    assert impact_status == "rule_based_fallback"
+    assert "4.2" in impact_out.summary

@@ -163,23 +163,40 @@ export default function DashboardPage() {
             </select>
 
             <button
+              type="button"
               onClick={refreshEnvironment}
               disabled={envLoading}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-bw-secondary border border-white/10 hover:border-white/25 text-xs font-medium text-bw-text disabled:opacity-50"
             >
               <RefreshCw
                 className={`h-3.5 w-3.5 ${envLoading ? "animate-spin" : ""}`}
+                aria-hidden="true"
               />
               Refresh
             </button>
 
             <Link
               href="/profile"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-bw-secondary border border-white/10 hover:border-bw-accent/40 text-xs text-bw-muted hover:text-bw-text"
+              className={`relative inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs transition-colors ${
+                (airQuality?.indices.indian_naqi.value ?? 0) >= 150
+                  ? "bg-bw-warning/10 border-bw-warning/35 text-bw-warning hover:border-bw-warning/60"
+                  : "bg-bw-secondary border-white/10 hover:border-bw-accent/40 text-bw-muted hover:text-bw-text"
+              }`}
               title="Notification & Profile Settings"
+              aria-label={
+                (airQuality?.indices.indian_naqi.value ?? 0) >= 150
+                  ? `Elevated air quality alert (${airQuality?.indices.indian_naqi.category}); open profile settings`
+                  : "Notification & Profile Settings"
+              }
             >
-              <Bell className="h-3.5 w-3.5" />
+              <Bell className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">Alerts</span>
+              {(airQuality?.indices.indian_naqi.value ?? 0) >= 150 && (
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 rounded-full bg-bw-warning"
+                />
+              )}
             </Link>
           </div>
         </div>
@@ -229,6 +246,13 @@ export default function DashboardPage() {
                         {activeIdx.category}
                       </span>
                     </div>
+                    {airQuality.indices.indian_naqi.health_implication && (
+                      <p className="text-xs text-bw-muted mt-2.5 max-w-xl leading-relaxed">
+                        {aqiStandard === "indian_naqi"
+                          ? airQuality.indices.indian_naqi.health_implication
+                          : `CPCB NAQI advisory note: ${airQuality.indices.indian_naqi.health_implication}`}
+                      </p>
+                    )}
                   </div>
 
                   <div className="rounded-xl bg-bw-secondary border border-white/10 px-4 py-3 text-xs space-y-1">

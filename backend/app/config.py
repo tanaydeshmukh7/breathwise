@@ -13,6 +13,22 @@ from pydantic_settings import (
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE_PATH = BACKEND_ROOT / ".env"
+INSECURE_JWT_PLACEHOLDERS = {
+    "dev-only-insecure-secret-change-in-production-32bytes",
+    "replace-with-a-secure-random-64-char-secret",
+}
+
+
+def _dedupe_models(primary: str, csv_list: str) -> List[str]:
+    """Return ordered, deduplicated model identifiers with primary first."""
+    seen: set[str] = set()
+    ordered: List[str] = []
+    for candidate in [primary, *csv_list.split(",")]:
+        cleaned = candidate.strip()
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            ordered.append(cleaned)
+    return ordered
 
 
 class Settings(BaseSettings):
@@ -88,29 +104,26 @@ class Settings(BaseSettings):
 
     @property
     def available_gemini_models(self) -> List[str]:
-        models = [self.GEMINI_MODEL] + [
-            m.strip() for m in self.GEMINI_AVAILABLE_MODELS.split(",") if m.strip()
-        ]
-        seen = set()
-        ordered: List[str] = []
-        for m in models:
-            if m and m not in seen:
-                seen.add(m)
-                ordered.append(m)
-        return ordered
+        return _dedupe_models(self.GEMINI_MODEL, self.GEMINI_AVAILABLE_MODELS)
 
     @property
     def available_qwen_models(self) -> List[str]:
-        models = [self.HF_MODEL] + [
-            m.strip() for m in self.HF_FALLBACK_MODELS.split(",") if m.strip()
-        ]
-        seen = set()
-        ordered: List[str] = []
-        for m in models:
-            if m and m not in seen:
-                seen.add(m)
-                ordered.append(m)
-        return ordered
+        return _dedupe_models(self.HF_MODEL, self.HF_FALLBACK_MODELS)
+
+    @property
+    def has_secure_jwt_secret(self) -> bool:
+        secret = self.JWT_SECRET_KEY.strip()
+        return len(secret) >= 32 and secret not in INSECURE_JWT_PLACEHOLDERS
+
+    def check_production_security(self) -> List[str]:
+        """Return security warnings when production configuration uses unsafe defaults."""
+        warnings: List[str] = []
+        if self.ENVIRONMENT.lower() == "production":
+            if not self.has_secure_jwt_secret:
+                warnings.append("JWT_SECRET_KEY uses a placeholder or is shorter than 32 chars.")
+            if self.DEBUG:
+                warnings.append("DEBUG mode should be disabled in production.")
+        return warnings
 
     @property
     def active_ai_provider(self) -> str:

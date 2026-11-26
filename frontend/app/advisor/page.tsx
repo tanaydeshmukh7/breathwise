@@ -112,10 +112,14 @@ export default function AdvisorPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-bw-muted block">
+              <label
+                htmlFor="advisor-household-context"
+                className="text-xs font-medium text-bw-muted block"
+              >
                 Household Context
               </label>
               <select
+                id="advisor-household-context"
                 value={householdContext}
                 onChange={(e) =>
                   setHouseholdContext(e.target.value as typeof householdContext)
@@ -131,10 +135,14 @@ export default function AdvisorPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-bw-muted block">
+              <label
+                htmlFor="advisor-ai-model"
+                className="text-xs font-medium text-bw-muted block"
+              >
                 AI Model
               </label>
               <select
+                id="advisor-ai-model"
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className="w-full rounded-xl bg-bw-bg border border-white/10 px-3 py-2 text-xs font-mono text-bw-text"
@@ -148,10 +156,14 @@ export default function AdvisorPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-bw-muted block">
+              <label
+                htmlFor="advisor-lifestyle-notes"
+                className="text-xs font-medium text-bw-muted block"
+              >
                 Lifestyle Preferences (Optional)
               </label>
               <textarea
+                id="advisor-lifestyle-notes"
                 rows={2}
                 value={lifestyleNotes}
                 onChange={(e) => setLifestyleNotes(e.target.value)}
@@ -168,6 +180,7 @@ export default function AdvisorPage() {
                 {ADVISOR_SUGGESTED_PROMPTS.map((p) => (
                   <button
                     key={p}
+                    type="button"
                     onClick={() => sendQuestion(p)}
                     disabled={loading}
                     className="text-left text-xs px-3 py-2 rounded-lg bg-bw-secondary hover:bg-bw-card border border-white/5 text-bw-text transition-colors disabled:opacity-50"
@@ -280,7 +293,11 @@ export default function AdvisorPage() {
             ))}
 
             {loading && (
-              <div className="rounded-xl bg-bw-secondary border border-white/10 p-4 text-xs text-bw-muted animate-pulse">
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl bg-bw-secondary border border-white/10 p-4 text-xs text-bw-muted animate-pulse"
+              >
                 Querying {selectedModel} with verified environmental snapshot...
               </div>
             )}
@@ -299,7 +316,11 @@ export default function AdvisorPage() {
             }}
             className="mt-4 pt-4 border-t border-white/[0.08] flex gap-2"
           >
+            <label htmlFor="advisor-question-input" className="sr-only">
+              Ask the Air Quality Advisor
+            </label>
             <input
+              id="advisor-question-input"
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
@@ -311,7 +332,7 @@ export default function AdvisorPage() {
               disabled={loading || !question.trim()}
               className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-bw-accent text-bw-bg text-sm font-semibold hover:opacity-90 disabled:opacity-50"
             >
-              <Send className="h-4 w-4" />
+              <Send className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Ask</span>
             </button>
           </form>

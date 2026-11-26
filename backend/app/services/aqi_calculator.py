@@ -111,6 +111,19 @@ def classify_us_aqi(aqi: Optional[int]) -> Tuple[str, str, str]:
     return ("Hazardous", "hazardous", "#F16D68")
 
 
+def indian_naqi_health_implication(category: str) -> str:
+    """Return documented CPCB health implication guidance for each Indian NAQI category."""
+    implications = {
+        "Good": "Minimal impact; air quality is satisfactory for outdoor exercise and natural ventilation.",
+        "Satisfactory": "Minor breathing discomfort may occur for unusually sensitive people.",
+        "Moderately Polluted": "Breathing discomfort possible for people with asthma, lung or heart conditions, children, and older adults.",
+        "Poor": "Breathing discomfort likely on prolonged exposure; limit vigorous outdoor exertion.",
+        "Very Poor": "Respiratory illness possible on prolonged exposure; avoid sustained outdoor exertion and keep indoor air clean.",
+        "Severe": "Affects healthy people and seriously impacts sensitive groups; stay indoors and minimize exposure.",
+    }
+    return implications.get(category, "Health implication unavailable due to incomplete pollutant data.")
+
+
 @dataclass
 class ComputedIndianNaqi:
     value: Optional[int]
@@ -121,6 +134,7 @@ class ComputedIndianNaqi:
     sub_indices: Dict[str, int]
     methodology: str
     note: str
+    health_implication: str
 
 
 def compute_indian_naqi(
@@ -168,6 +182,7 @@ def compute_indian_naqi(
             sub_indices=sub_indices,
             methodology="CPCB Indian National AQI (NAQI)",
             note="CPCB NAQI requires at least 3 pollutants including PM2.5 or PM10.",
+            health_implication=indian_naqi_health_implication("Unavailable"),
         )
 
     dominant = max(sub_indices, key=lambda k: sub_indices[k])
@@ -185,6 +200,7 @@ def compute_indian_naqi(
             "Calculated from instantaneous/hourly surface concentrations using CPCB NAQI "
             "breakpoints (official CPCB monitoring averages 24h for PM/NO2/SO2 and 8h for O3/CO)."
         ),
+        health_implication=indian_naqi_health_implication(category),
     )
 
 

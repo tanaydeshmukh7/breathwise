@@ -21,6 +21,8 @@ logger = logging.getLogger("breathewise")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     settings = get_settings()
+    for warning in settings.check_production_security():
+        logger.warning("Security config warning: %s", warning)
     await db_manager.connect(settings)
     yield
     await db_manager.close()
@@ -49,6 +51,15 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
+
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(self)")
+        return response
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(_: Request, exc: Exception):

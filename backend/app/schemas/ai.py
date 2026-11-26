@@ -15,7 +15,7 @@ class RecommendationItem(BaseModel):
 class StructuredAdvisorOutput(BaseModel):
     summary: str = Field(..., min_length=5, max_length=600)
     risk_level: Literal["low", "moderate", "high", "very_high", "severe"]
-    recommendations: List[RecommendationItem] = Field(default_factory=list, max_length=6)
+    recommendations: List[RecommendationItem] = Field(..., min_length=1, max_length=6)
     best_outdoor_window: Optional[str] = Field(default=None, max_length=160)
     precautionary_note: str = Field(
         default="General environmental precaution only — not medical advice.",
@@ -112,8 +112,11 @@ class SustainableAlternativesRequest(UserContextInput):
     focus_category: Optional[str] = None
 
 
+AIStatus = Literal["live_gemini", "live_qwen", "rule_based_fallback"]
+
+
 class AIResponseEnvelope(BaseModel):
-    ai_status: Literal["live_gemini", "live_qwen", "rule_based_fallback"]
+    ai_status: AIStatus
     model_used: str
     provider: str
     fallback_reason: Optional[str] = None

@@ -37,6 +37,12 @@ export default function IndoorPage() {
   const [error, setError] = useState<string | null>(null);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
 
+  useEffect(() => {
+    if (user) {
+      setHasPurifier(user.has_air_purifier);
+    }
+  }, [user]);
+
   const fetchAdvice = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -136,8 +142,14 @@ export default function IndoorPage() {
           </label>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-bw-muted shrink-0">Cooking Fuel:</span>
+            <label
+              htmlFor="indoor-cooking-fuel"
+              className="text-xs text-bw-muted shrink-0"
+            >
+              Cooking Fuel:
+            </label>
             <select
+              id="indoor-cooking-fuel"
               value={cookingFuel}
               onChange={(e) =>
                 setCookingFuel(e.target.value as typeof cookingFuel)
@@ -244,6 +256,8 @@ export default function IndoorPage() {
               return (
                 <button
                   key={idx}
+                  type="button"
+                  aria-pressed={isDone}
                   onClick={() =>
                     setChecked((prev) => ({ ...prev, [idx]: !prev[idx] }))
                   }

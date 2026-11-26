@@ -151,20 +151,25 @@ export default function RoutinePage() {
           </div>
           <div className="flex items-center gap-2.5">
             <button
+              type="button"
               onClick={generateRoutine}
               disabled={loading}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-bw-secondary border border-white/10 text-xs font-medium hover:border-white/25 disabled:opacity-50"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+                aria-hidden="true"
+              />
               Regenerate from Forecast
             </button>
             {token ? (
               <button
+                type="button"
                 onClick={handleSaveRoutine}
                 disabled={saving || !routineEnv}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-bw-accent text-bw-bg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
               >
-                <BookmarkPlus className="h-3.5 w-3.5" />
+                <BookmarkPlus className="h-3.5 w-3.5" aria-hidden="true" />
                 {saving ? "Saving..." : "Save Routine"}
               </button>
             ) : (
@@ -179,7 +184,11 @@ export default function RoutinePage() {
         </div>
 
         {saveMessage && (
-          <div className="rounded-xl border border-bw-teal/30 bg-bw-teal/10 px-4 py-2.5 text-xs text-bw-teal">
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-xl border border-bw-teal/30 bg-bw-teal/10 px-4 py-2.5 text-xs text-bw-teal"
+          >
             {saveMessage}
           </div>
         )}
@@ -274,11 +283,13 @@ export default function RoutinePage() {
                         </p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => handleDelete(rt.id)}
                         className="p-1.5 rounded-lg text-bw-muted hover:text-bw-danger hover:bg-white/5"
-                        title="Delete saved routine"
+                        title={`Delete ${rt.title}`}
+                        aria-label={`Delete ${rt.title}`}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
                     <p className="text-xs text-bw-muted">{rt.summary}</p>

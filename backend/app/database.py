@@ -6,6 +6,7 @@ in-memory fallback when MONGODB_URI is not configured in development mode.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from copy import deepcopy
@@ -283,14 +284,14 @@ class DatabaseManager:
     async def connect(self, settings: Settings) -> DatabaseHandle:
         uri = settings.MONGODB_URI.strip()
         if uri:
+            client: AsyncMongoClient | None = None
             try:
-                client: AsyncMongoClient = AsyncMongoClient(
+                client = AsyncMongoClient(
                     uri,
-                    serverSelectionTimeoutMS=5000,
-                    connectTimeoutMS=5000,
+                    serverSelectionTimeoutMS=4000,
+                    connectTimeoutMS=4000,
                 )
-                await client.aconnect()
-                await client.admin.command("ping")
+                await asyncio.wait_for(client.admin.command("ping"), timeout=6.0)
                 db = client[settings.MONGODB_DB_NAME]
                 await self._ensure_collections_and_indexes(db)
                 self.client = client
@@ -302,6 +303,11 @@ class DatabaseManager:
                 logger.info("Connected to MongoDB database '%s'.", settings.MONGODB_DB_NAME)
                 return self.handle
             except Exception as exc:
+                if client is not None:
+                    try:
+                        await client.close()
+                    except Exception:
+                        pass
                 logger.warning("MongoDB connection failed: %s", exc)
                 if settings.ENVIRONMENT == "development" and settings.DEV_MEMORY_DB_FALLBACK:
                     self.handle = DatabaseHandle(

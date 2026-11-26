@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { Plus, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
-import { LoadingCard, UnavailableBanner } from "@/components/ui/Primitives";
+import {
+  AuthPromptCard,
+  LoadingCard,
+  UnavailableBanner,
+} from "@/components/ui/Primitives";
 import { useBreatheWise } from "@/hooks/useBreatheWise";
 import { api } from "@/lib/api";
 import { AqiStandard, FamilyMember } from "@/types";
@@ -144,28 +147,22 @@ export default function ProfilePage() {
         </div>
 
         {!token ? (
-          <div className="bw-surface rounded-2xl p-8 text-center space-y-4">
-            <h2 className="text-lg font-semibold">
-              Sign in to manage your Household & Family Profiles
-            </h2>
-            <p className="text-sm text-bw-muted max-w-md mx-auto">
-              Save your air purifier setup, commute preferences, and caregiver
-              profiles so Qwen AI tailors every daily routine to your family.
-            </p>
-            <Link
-              href="/auth"
-              className="inline-flex items-center px-5 py-2.5 rounded-xl bg-bw-accent text-bw-bg text-sm font-semibold"
-            >
-              Sign In / Register
-            </Link>
-          </div>
+          <AuthPromptCard
+            title="Sign in to manage your Household & Family Profiles"
+            description="Save your air purifier setup, commute preferences, and caregiver profiles so BreatheWise AI tailors every daily routine to your family."
+            ctaLabel="Sign In / Register"
+          />
         ) : loading && !user ? (
           <LoadingCard lines={6} />
         ) : (
           <>
             {error && <UnavailableBanner title="Profile Error" message={error} />}
             {message && (
-              <div className="rounded-xl border border-bw-teal/30 bg-bw-teal/10 px-4 py-2.5 text-xs text-bw-teal">
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-bw-teal/30 bg-bw-teal/10 px-4 py-2.5 text-xs text-bw-teal"
+              >
                 {message}
               </div>
             )}
@@ -180,10 +177,14 @@ export default function ProfilePage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-bw-muted block mb-1">
+                    <label
+                      htmlFor="profile-full-name"
+                      className="text-xs text-bw-muted block mb-1"
+                    >
                       Full Name
                     </label>
                     <input
+                      id="profile-full-name"
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -192,10 +193,14 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-bw-muted block mb-1">
+                    <label
+                      htmlFor="profile-home-city"
+                      className="text-xs text-bw-muted block mb-1"
+                    >
                       Home City
                     </label>
                     <input
+                      id="profile-home-city"
                       type="text"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
@@ -203,10 +208,14 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-bw-muted block mb-1">
+                    <label
+                      htmlFor="profile-age-group"
+                      className="text-xs text-bw-muted block mb-1"
+                    >
                       Age Group
                     </label>
                     <select
+                      id="profile-age-group"
                       value={ageGroup}
                       onChange={(e) => setAgeGroup(e.target.value)}
                       className="w-full rounded-xl bg-bw-bg border border-white/10 px-3 py-2 text-sm"
@@ -217,10 +226,14 @@ export default function ProfilePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-bw-muted block mb-1">
+                    <label
+                      htmlFor="profile-occupation"
+                      className="text-xs text-bw-muted block mb-1"
+                    >
                       Occupation
                     </label>
                     <input
+                      id="profile-occupation"
                       type="text"
                       value={occupation}
                       onChange={(e) => setOccupation(e.target.value)}
@@ -228,10 +241,14 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-bw-muted block mb-1">
+                    <label
+                      htmlFor="profile-transport"
+                      className="text-xs text-bw-muted block mb-1"
+                    >
                       Primary Transport
                     </label>
                     <select
+                      id="profile-transport"
                       value={transport}
                       onChange={(e) => setTransport(e.target.value)}
                       className="w-full rounded-xl bg-bw-bg border border-white/10 px-3 py-2 text-sm"
@@ -244,10 +261,14 @@ export default function ProfilePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-bw-muted block mb-1">
+                    <label
+                      htmlFor="profile-exercise"
+                      className="text-xs text-bw-muted block mb-1"
+                    >
                       Exercise Habit
                     </label>
                     <select
+                      id="profile-exercise"
                       value={exercise}
                       onChange={(e) => setExercise(e.target.value)}
                       className="w-full rounded-xl bg-bw-bg border border-white/10 px-3 py-2 text-sm"
@@ -259,10 +280,14 @@ export default function ProfilePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-bw-muted block mb-1">
+                    <label
+                      htmlFor="profile-household-size"
+                      className="text-xs text-bw-muted block mb-1"
+                    >
                       Household Size
                     </label>
                     <input
+                      id="profile-household-size"
                       type="number"
                       min={1}
                       max={20}
@@ -272,10 +297,14 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-bw-muted block mb-1">
+                    <label
+                      htmlFor="profile-aqi-standard"
+                      className="text-xs text-bw-muted block mb-1"
+                    >
                       Preferred AQI Standard
                     </label>
                     <select
+                      id="profile-aqi-standard"
                       value={std}
                       onChange={(e) => setStd(e.target.value as AqiStandard)}
                       className="w-full rounded-xl bg-bw-bg border border-white/10 px-3 py-2 text-sm"
@@ -299,10 +328,14 @@ export default function ProfilePage() {
                 </label>
 
                 <div>
-                  <label className="text-xs text-bw-muted block mb-1">
+                  <label
+                    htmlFor="profile-notes"
+                    className="text-xs text-bw-muted block mb-1"
+                  >
                     Personal Preferences & Notes
                   </label>
                   <textarea
+                    id="profile-notes"
                     rows={2}
                     value={personalPrefs}
                     onChange={(e) => setPersonalPrefs(e.target.value)}
@@ -342,6 +375,7 @@ export default function ProfilePage() {
                       value={memberName}
                       onChange={(e) => setMemberName(e.target.value)}
                       placeholder="Member name"
+                      aria-label="Family member name"
                       required
                       className="rounded-lg bg-bw-bg border border-white/10 px-3 py-2 text-xs"
                     />
@@ -352,6 +386,7 @@ export default function ProfilePage() {
                           e.target.value as "adult" | "child" | "elderly"
                         )
                       }
+                      aria-label="Family member group"
                       className="rounded-lg bg-bw-bg border border-white/10 px-3 py-2 text-xs"
                     >
                       <option value="child">Child</option>
@@ -365,6 +400,7 @@ export default function ProfilePage() {
                       value={memberNotes}
                       onChange={(e) => setMemberNotes(e.target.value)}
                       placeholder="Precaution notes (optional)"
+                      aria-label="Precaution notes"
                       className="col-span-2 rounded-lg bg-bw-bg border border-white/10 px-3 py-2 text-xs"
                     />
                     <input
@@ -374,6 +410,7 @@ export default function ProfilePage() {
                       value={memberMinutes}
                       onChange={(e) => setMemberMinutes(e.target.value)}
                       placeholder="Min/day"
+                      aria-label="Typical outdoor minutes per day"
                       className="rounded-lg bg-bw-bg border border-white/10 px-3 py-2 text-xs font-mono"
                     />
                   </div>
@@ -415,11 +452,13 @@ export default function ProfilePage() {
                           </p>
                         </div>
                         <button
+                          type="button"
                           onClick={() => handleDeleteMember(m.id)}
                           className="p-1.5 rounded-lg text-bw-muted hover:text-bw-danger"
-                          title="Remove"
+                          title={`Remove ${m.name}`}
+                          aria-label={`Remove ${m.name}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </button>
                       </div>
                     ))

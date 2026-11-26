@@ -26,6 +26,7 @@ from app.prompts.templates import (
     build_sustainable_alternatives_messages,
 )
 from app.schemas.ai import (
+    AIStatus,
     DailyRoutineSlot,
     IndoorRoomAdvice,
     RecommendationItem,
@@ -268,7 +269,7 @@ class AIService:
                     config=genai_types.GenerateContentConfig(
                         system_instruction=system_instruction,
                         temperature=0.2,
-                        max_output_tokens=max_tokens,
+                        max_output_tokens=max(4096, max_tokens),
                         response_mime_type="application/json",
                         response_schema=schema_cls,
                     ),
@@ -314,7 +315,7 @@ class AIService:
         schema_cls: Type[TModel],
         requested_model: Optional[str] = None,
         max_tokens: int = 1200,
-    ) -> Tuple[Optional[TModel], str, str, Optional[str]]:
+    ) -> Tuple[Optional[TModel], AIStatus, str, Optional[str]]:
         """Invoke the active AI provider and return (validated_or_None, live_status_tag, model_used, err)."""
         if self.active_provider_key == "huggingface":
             validated, model_used, err = await self._invoke_qwen_structured(
@@ -522,7 +523,7 @@ class AIService:
         env_snapshot: Dict[str, Any],
         user_context: Dict[str, Any],
         requested_model: Optional[str] = None,
-    ) -> Tuple[StructuredAdvisorOutput, str, str, Optional[str]]:
+    ) -> Tuple[StructuredAdvisorOutput, AIStatus, str, Optional[str]]:
         messages = build_air_analysis_messages(env_snapshot, user_context)
         validated, live_tag, model_used, err = await self._invoke_active_structured(
             messages, StructuredAdvisorOutput, requested_model
@@ -544,7 +545,7 @@ class AIService:
         forecast_summary: Optional[Dict[str, Any]],
         history: list[dict[str, str]],
         requested_model: Optional[str] = None,
-    ) -> Tuple[StructuredAdvisorOutput, str, str, Optional[str]]:
+    ) -> Tuple[StructuredAdvisorOutput, AIStatus, str, Optional[str]]:
         messages = build_advisor_chat_messages(
             question, env_snapshot, user_context, forecast_summary, history
         )
@@ -566,7 +567,7 @@ class AIService:
         user_context: Dict[str, Any],
         forecast_summary: Dict[str, Any],
         requested_model: Optional[str] = None,
-    ) -> Tuple[StructuredDailyRoutineOutput, str, str, Optional[str]]:
+    ) -> Tuple[StructuredDailyRoutineOutput, AIStatus, str, Optional[str]]:
         messages = build_daily_routine_messages(
             env_snapshot, user_context, forecast_summary
         )
@@ -588,7 +589,7 @@ class AIService:
         user_context: Dict[str, Any],
         indoor_context: Dict[str, Any],
         requested_model: Optional[str] = None,
-    ) -> Tuple[StructuredIndoorOutput, str, str, Optional[str]]:
+    ) -> Tuple[StructuredIndoorOutput, AIStatus, str, Optional[str]]:
         messages = build_indoor_advice_messages(
             env_snapshot, user_context, indoor_context
         )
@@ -610,7 +611,7 @@ class AIService:
         user_context: Dict[str, Any],
         focus_category: Optional[str] = None,
         requested_model: Optional[str] = None,
-    ) -> Tuple[StructuredSustainableOutput, str, str, Optional[str]]:
+    ) -> Tuple[StructuredSustainableOutput, AIStatus, str, Optional[str]]:
         messages = build_sustainable_alternatives_messages(
             env_snapshot, user_context, focus_category
         )
@@ -631,7 +632,7 @@ class AIService:
         impact_summary: Dict[str, Any],
         user_context: Dict[str, Any],
         requested_model: Optional[str] = None,
-    ) -> Tuple[StructuredAdvisorOutput, str, str, Optional[str]]:
+    ) -> Tuple[StructuredAdvisorOutput, AIStatus, str, Optional[str]]:
         messages = build_impact_explanation_messages(impact_summary, user_context)
         validated, live_tag, model_used, err = await self._invoke_active_structured(
             messages, StructuredAdvisorOutput, requested_model

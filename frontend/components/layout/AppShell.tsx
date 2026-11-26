@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -49,6 +49,17 @@ export function LocationPickerModal({
   const [searching, setSearching] = useState(false);
   const [searchErr, setSearchErr] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -70,11 +81,24 @@ export function LocationPickerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-bw-secondary border border-white/10 p-6 shadow-glass">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="location-modal-title"
+        className="w-full max-w-lg rounded-2xl bg-bw-secondary border border-white/10 p-6 shadow-glass"
+      >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-base font-semibold text-bw-text">
+            <h2
+              id="location-modal-title"
+              className="text-base font-semibold text-bw-text"
+            >
               Select Monitoring Location
             </h2>
             <p className="text-xs text-bw-muted">
@@ -83,33 +107,44 @@ export function LocationPickerModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg text-bw-muted hover:text-bw-text hover:bg-white/5"
             aria-label="Close location modal"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
         <button
+          type="button"
           onClick={async () => {
             await detectGeolocation();
             onClose();
           }}
           className="w-full mb-4 flex items-center justify-center gap-2 rounded-xl border border-bw-accent/30 bg-bw-accent/10 px-4 py-2.5 text-sm font-medium text-bw-accent hover:bg-bw-accent/15 transition-colors"
         >
-          <Navigation className="h-4 w-4" />
+          <Navigation className="h-4 w-4" aria-hidden="true" />
           Use Browser Geolocation
         </button>
 
         {geoError && (
-          <p className="text-xs text-bw-warning mb-3">{geoError}</p>
+          <p role="alert" className="text-xs text-bw-warning mb-3">
+            {geoError}
+          </p>
         )}
 
         <form onSubmit={handleSearch} className="flex gap-2 mb-4">
           <div className="relative flex-1">
-            <Search className="h-4 w-4 text-bw-muted absolute left-3 top-1/2 -translate-y-1/2" />
+            <label htmlFor="city-search-input" className="sr-only">
+              Search monitoring city
+            </label>
+            <Search
+              className="h-4 w-4 text-bw-muted absolute left-3 top-1/2 -translate-y-1/2"
+              aria-hidden="true"
+            />
             <input
+              id="city-search-input"
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -189,6 +224,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-bw-bg text-bw-text bw-ambient-grid flex flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-bw-accent focus:text-bw-bg focus:text-xs focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-bw-bg/85 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-6">
@@ -204,7 +245,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </Link>
 
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav aria-label="Primary navigation" className="hidden lg:flex items-center gap-1">
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const active = pathname === item.href;
@@ -212,13 +253,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                       active
                         ? "bg-bw-accent/15 text-bw-accent border border-bw-accent/25"
                         : "text-bw-muted hover:text-bw-text hover:bg-white/5"
                     }`}
                   >
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                     {item.label}
                   </Link>
                 );
@@ -228,19 +270,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2.5">
             <button
+              type="button"
               onClick={() => setLocOpen(true)}
+              aria-label={`Change monitoring location (${location.name})`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bw-secondary border border-white/10 hover:border-bw-accent/40 text-xs text-bw-text transition-colors"
             >
-              <MapPin className="h-3.5 w-3.5 text-bw-accent" />
+              <MapPin className="h-3.5 w-3.5 text-bw-accent" aria-hidden="true" />
               <span className="max-w-[120px] truncate">{location.name}</span>
-              <ChevronDown className="h-3 w-3 text-bw-muted" />
+              <ChevronDown className="h-3 w-3 text-bw-muted" aria-hidden="true" />
             </button>
 
             <div
+              role="group"
+              aria-label="AQI Methodology Standard"
               className="hidden sm:flex items-center rounded-lg bg-bw-secondary border border-white/10 p-0.5 text-[11px]"
               title="Switch AQI Methodology Standard"
             >
               <button
+                type="button"
+                aria-pressed={aqiStandard === "indian_naqi"}
                 onClick={() => setAqiStandard("indian_naqi")}
                 className={`px-2 py-1 rounded-md font-medium transition-colors ${
                   aqiStandard === "indian_naqi"
@@ -251,6 +299,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 IN NAQI
               </button>
               <button
+                type="button"
+                aria-pressed={aqiStandard === "us_aqi"}
                 onClick={() => setAqiStandard("us_aqi")}
                 className={`px-2 py-1 rounded-md font-medium transition-colors ${
                   aqiStandard === "us_aqi"
@@ -271,11 +321,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {user.name.split(" ")[0]}
                 </Link>
                 <button
+                  type="button"
                   onClick={logout}
                   className="p-1.5 rounded-lg text-bw-muted hover:text-bw-danger hover:bg-white/5"
                   title="Sign out"
+                  aria-label="Sign out"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             ) : (
@@ -288,17 +340,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
 
             <button
+              type="button"
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
               className="lg:hidden p-2 rounded-lg text-bw-muted hover:text-bw-text hover:bg-white/5"
-              aria-label="Toggle menu"
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-navigation"
             >
-              {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {mobileNavOpen ? (
+                <X className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              )}
             </button>
           </div>
         </div>
 
         {mobileNavOpen && (
-          <div className="lg:hidden border-t border-white/10 bg-bw-secondary px-4 py-3 space-y-1">
+          <nav
+            id="mobile-navigation"
+            aria-label="Mobile navigation"
+            className="lg:hidden border-t border-white/10 bg-bw-secondary px-4 py-3 space-y-1"
+          >
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
@@ -306,6 +369,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   onClick={() => setMobileNavOpen(false)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
                     active
@@ -313,14 +377,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       : "text-bw-muted hover:text-bw-text"
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                   {item.label}
                 </Link>
               );
             })}
             <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-1 text-xs">
+              <div
+                role="group"
+                aria-label="AQI Methodology Standard"
+                className="flex items-center gap-1 text-xs"
+              >
                 <button
+                  type="button"
+                  aria-pressed={aqiStandard === "indian_naqi"}
                   onClick={() => setAqiStandard("indian_naqi")}
                   className={`px-2.5 py-1 rounded ${
                     aqiStandard === "indian_naqi"
@@ -331,6 +401,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   IN NAQI
                 </button>
                 <button
+                  type="button"
+                  aria-pressed={aqiStandard === "us_aqi"}
                   onClick={() => setAqiStandard("us_aqi")}
                   className={`px-2.5 py-1 rounded ${
                     aqiStandard === "us_aqi"
@@ -343,6 +415,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               {user ? (
                 <button
+                  type="button"
                   onClick={logout}
                   className="text-xs text-bw-danger font-medium"
                 >
@@ -358,11 +431,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               )}
             </div>
-          </div>
+          </nav>
         )}
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main
+        id="main-content"
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8"
+      >
         {children}
       </main>
 

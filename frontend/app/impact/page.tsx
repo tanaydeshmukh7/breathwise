@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { Info, PlusCircle, TrendingUp } from "lucide-react";
 import {
   Bar,
@@ -13,7 +12,11 @@ import {
   YAxis,
 } from "recharts";
 import { AppShell } from "@/components/layout/AppShell";
-import { LoadingCard, UnavailableBanner } from "@/components/ui/Primitives";
+import {
+  AuthPromptCard,
+  LoadingCard,
+  UnavailableBanner,
+} from "@/components/ui/Primitives";
 import { useBreatheWise } from "@/hooks/useBreatheWise";
 import { api } from "@/lib/api";
 import { ImpactSummary } from "@/types";
@@ -117,21 +120,10 @@ export default function ImpactPage() {
         </div>
 
         {!token ? (
-          <div className="bw-surface rounded-2xl p-8 text-center space-y-4">
-            <h2 className="text-lg font-semibold">
-              Sign in to persist your Personal Impact Tracker
-            </h2>
-            <p className="text-sm text-bw-muted max-w-md mx-auto">
-              Your logged metro commutes, cycling distance, and household energy
-              actions are saved per account in MongoDB Atlas.
-            </p>
-            <Link
-              href="/auth"
-              className="inline-flex items-center px-5 py-2.5 rounded-xl bg-bw-accent text-bw-bg text-sm font-semibold"
-            >
-              Sign In / Create Account
-            </Link>
-          </div>
+          <AuthPromptCard
+            title="Sign in to persist your Personal Impact Tracker"
+            description="Your logged metro commutes, cycling distance, and household energy actions are saved per account in MongoDB Atlas."
+          />
         ) : (
           <>
             {error && (
@@ -204,10 +196,14 @@ export default function ImpactPage() {
                       </h2>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs text-bw-muted block">
+                        <label
+                          htmlFor="impact-action-type"
+                          className="text-xs text-bw-muted block"
+                        >
                           Action Type
                         </label>
                         <select
+                          id="impact-action-type"
                           value={selectedType}
                           onChange={(e) => handleSelectType(e.target.value)}
                           className="w-full rounded-xl bg-bw-bg border border-white/10 px-3 py-2 text-xs text-bw-text"
@@ -221,10 +217,14 @@ export default function ImpactPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs text-bw-muted block">
+                        <label
+                          htmlFor="impact-action-name"
+                          className="text-xs text-bw-muted block"
+                        >
                           Description
                         </label>
                         <input
+                          id="impact-action-name"
                           type="text"
                           value={actionName}
                           onChange={(e) => setActionName(e.target.value)}
@@ -234,10 +234,14 @@ export default function ImpactPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs text-bw-muted block">
+                        <label
+                          htmlFor="impact-quantity"
+                          className="text-xs text-bw-muted block"
+                        >
                           Quantity ({activeFactor?.unit || "units"})
                         </label>
                         <input
+                          id="impact-quantity"
                           type="number"
                           step="0.1"
                           min="0.1"
