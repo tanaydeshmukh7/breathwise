@@ -7,10 +7,15 @@ frontend/.env.local
 
 # Python
 backend/.venv/
+demo-video/.venv/
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+
+# Demo video build artifacts (keep final MP4, README, and scripts)
+demo-video/assets/
+demo-video/raw-recordings/
 
 # Node / Next.js
 frontend/node_modules/
