@@ -93,9 +93,16 @@ class AIService:
         return self.settings.active_ai_provider
 
     def _resolve_gemini_model(self, requested_model: Optional[str]) -> str:
-        if requested_model and requested_model in self.settings.available_gemini_models:
-            return requested_model
-        return self.settings.GEMINI_MODEL
+        """Return the explicitly requested model or configured GEMINI_MODEL without silent substitution."""
+        if requested_model is not None:
+            cleaned = requested_model.strip()
+            if cleaned:
+                return cleaned
+        return self.settings.GEMINI_MODEL.strip()
+
+    @staticmethod
+    def _is_valid_gemini_model_id(model_name: str) -> bool:
+        return bool(re.fullmatch(r"(?:models/)?[A-Za-z0-9][A-Za-z0-9._-]{0,119}", model_name))
 
     def _create_gemini_client(self) -> Optional[genai.Client]:
         api_key = self.settings.GEMINI_API_KEY.strip()
@@ -160,6 +167,16 @@ class AIService:
                 404,
                 f"HTTP 404 Gemini model '{model_name}' is unavailable or not found.",
             )
+        if code == 503 or "UNAVAILABLE" in msg_upper:
+            return (
+                503,
+                f"HTTP 503 Gemini model '{model_name}' is temporarily unavailable due to high demand.",
+            )
+        if code == 504 or "DEADLINE_EXCEEDED" in msg_upper:
+            return (
+                504,
+                f"HTTP 504 Gemini request to '{model_name}' exceeded server deadline.",
+            )
         return (
             code,
             f"HTTP {code} Gemini API error for {model_name}.",
@@ -171,6 +188,15 @@ class AIService:
         """Perform one minimal completion against the configured Gemini model without fallback substitution."""
         chosen_model = self._resolve_gemini_model(requested_model)
         provider_label = "google_gemini"
+        if not self._is_valid_gemini_model_id(chosen_model):
+            return {
+                "ok": False,
+                "http_status": 400,
+                "model_id": chosen_model,
+                "provider": provider_label,
+                "response": None,
+                "error": f"Invalid Gemini model identifier '{chosen_model}'.",
+            }
         client = self._create_gemini_client()
         if client is None:
             return {
@@ -189,14 +215,19 @@ class AIService:
                     contents='Respond strictly with JSON: {"status": "ok", "service": "BreatheWise"}',
                     config=genai_types.GenerateContentConfig(
                         temperature=0.0,
-                        max_output_tokens=60,
+                        max_output_tokens=256,
                         response_mime_type="application/json",
                     ),
                 ),
                 timeout=self.settings.GEMINI_TIMEOUT_SECONDS,
             )
             text = resp.text if hasattr(resp, "text") else None
-            actual_model = getattr(resp, "model_version", None) or chosen_model
+            raw_ver = getattr(resp, "model_version", None)
+            actual_model = (
+                raw_ver.strip()
+                if isinstance(raw_ver, str) and raw_ver.strip()
+                else chosen_model
+            )
             return {
                 "ok": True,
                 "http_status": 200,
@@ -252,6 +283,12 @@ class AIService:
     ) -> Tuple[Optional[TModel], str, Optional[str]]:
         """Call ONLY the configured/requested Gemini model and validate output with Pydantic."""
         chosen_model = self._resolve_gemini_model(requested_model)
+        if not self._is_valid_gemini_model_id(chosen_model):
+            return (
+                None,
+                chosen_model,
+                f"Invalid Gemini model identifier '{chosen_model}'.",
+            )
         client = self._create_gemini_client()
         if client is None:
             return (
@@ -281,7 +318,13 @@ class AIService:
                 return (None, chosen_model, f"Empty response from Gemini model {chosen_model}.")
             payload = _extract_json_object(content)
             validated = schema_cls.model_validate(payload)
-            return (validated, chosen_model, None)
+            raw_ver = getattr(resp, "model_version", None)
+            actual_model = (
+                raw_ver.strip()
+                if isinstance(raw_ver, str) and raw_ver.strip()
+                else chosen_model
+            )
+            return (validated, actual_model, None)
         except genai_errors.APIError as exc:
             _, err_msg = self._format_gemini_error(exc, chosen_model)
             logger.warning(err_msg)
@@ -328,9 +371,11 @@ class AIService:
         return (validated, "live_gemini", model_used, err)
 
     def _resolve_model(self, requested_model: Optional[str]) -> str:
-        if requested_model and requested_model in self.settings.available_qwen_models:
-            return requested_model
-        return self.settings.HF_MODEL
+        if requested_model is not None:
+            cleaned = requested_model.strip()
+            if cleaned:
+                return cleaned
+        return self.settings.HF_MODEL.strip()
 
     def _create_client(self) -> Optional[AsyncOpenAI]:
         token = self.settings.HF_TOKEN.strip()

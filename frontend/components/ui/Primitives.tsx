@@ -129,23 +129,30 @@ export function AuthPromptCard({
 export function AiSourceBadge({
   aiStatus,
   modelUsed,
+  provider,
   fallbackReason,
 }: {
   aiStatus: "live_gemini" | "live_qwen" | "rule_based_fallback";
   modelUsed: string;
+  provider?: string;
   fallbackReason?: string | null;
 }) {
   const isLive = aiStatus === "live_gemini" || aiStatus === "live_qwen";
-  const liveLabel =
+  const statusTitle =
     aiStatus === "live_gemini"
-      ? `Live Gemini Intelligence (${modelUsed})`
-      : `Live Qwen Intelligence (${modelUsed})`;
-  const providerTag =
-    aiStatus === "live_gemini"
-      ? "Google Gemini API"
+      ? "Live Gemini AI Response"
       : aiStatus === "live_qwen"
-      ? "Hugging Face Router"
-      : "Grounded Open-Meteo Rules";
+      ? "Live Qwen AI Response"
+      : "Deterministic Open-Meteo Fallback";
+  const providerLabel =
+    aiStatus === "live_gemini"
+      ? `Google Gemini (${provider || "google_gemini"})`
+      : aiStatus === "live_qwen"
+      ? `Hugging Face Router (${provider || "huggingface_router"})`
+      : `Open-Meteo Rules (after ${provider || "ai_provider"} failed)`;
+  const modelLabel = isLive
+    ? `Model: ${modelUsed}`
+    : `Attempted model: ${modelUsed}`;
   return (
     <div
       className={`rounded-lg border px-3 py-2 text-xs flex flex-col gap-1 ${
@@ -157,11 +164,11 @@ export function AiSourceBadge({
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="inline-flex items-center gap-1.5 font-medium">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          {isLive
-            ? liveLabel
-            : `Verified-Data Deterministic Fallback (${modelUsed} unavailable)`}
+          {statusTitle}
         </span>
-        <span className="font-mono text-[11px]">{providerTag}</span>
+        <span className="font-mono text-[11px]">
+          {providerLabel} · {modelLabel}
+        </span>
       </div>
       {!isLive && fallbackReason && (
         <p className="text-[11px] text-bw-muted leading-snug">{fallbackReason}</p>

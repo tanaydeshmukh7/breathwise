@@ -30,6 +30,7 @@ export default function AdvisorPage() {
     selectedModel,
     setSelectedModel,
     availableModels,
+    activeProvider,
     airQuality,
   } = useBreatheWise();
 
@@ -60,7 +61,7 @@ export default function AdvisorPage() {
           household_context: householdContext,
           lifestyle_notes: lifestyleNotes,
           has_air_purifier: user?.has_air_purifier || false,
-          model_id: selectedModel,
+          model_id: selectedModel || undefined,
         },
         token
       );
@@ -143,7 +144,7 @@ export default function AdvisorPage() {
               </label>
               <select
                 id="advisor-ai-model"
-                value={selectedModel}
+                value={selectedModel || availableModels[0] || ""}
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className="w-full rounded-xl bg-bw-bg border border-white/10 px-3 py-2 text-xs font-mono text-bw-text"
               >
@@ -153,6 +154,9 @@ export default function AdvisorPage() {
                   </option>
                 ))}
               </select>
+              <p className="text-[11px] text-bw-muted font-mono truncate">
+                Provider: {activeProvider}
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -279,6 +283,7 @@ export default function AdvisorPage() {
                       <AiSourceBadge
                         aiStatus={turn.envelope.ai_status}
                         modelUsed={turn.envelope.model_used}
+                        provider={turn.envelope.provider}
                         fallbackReason={turn.envelope.fallback_reason}
                       />
 
@@ -298,7 +303,7 @@ export default function AdvisorPage() {
                 aria-live="polite"
                 className="rounded-xl bg-bw-secondary border border-white/10 p-4 text-xs text-bw-muted animate-pulse"
               >
-                Querying {selectedModel} with verified environmental snapshot...
+                Querying {selectedModel || "configured Gemini model"} with verified environmental snapshot...
               </div>
             )}
           </div>

@@ -48,6 +48,7 @@ export default function DashboardPage() {
     householdContext,
     setHouseholdContext,
     selectedModel,
+    modelsLoaded,
     airQuality,
     forecast,
     weather,
@@ -64,7 +65,7 @@ export default function DashboardPage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!airQuality) return;
+    if (!airQuality || !modelsLoaded) return;
     let cancelled = false;
     setAnalysisLoading(true);
     setAnalysisError(null);
@@ -76,7 +77,7 @@ export default function DashboardPage() {
           longitude: airQuality.location.longitude,
           household_context: householdContext,
           has_air_purifier: user?.has_air_purifier || false,
-          model_id: selectedModel,
+          model_id: selectedModel || undefined,
         },
         token
       )
@@ -96,7 +97,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [airQuality, householdContext, selectedModel, token, user?.has_air_purifier]);
+  }, [airQuality, householdContext, modelsLoaded, selectedModel, token, user?.has_air_purifier]);
 
   const activeIdx = getActiveIndexInfo(airQuality, aqiStandard);
 
@@ -515,6 +516,7 @@ export default function DashboardPage() {
                 <AiSourceBadge
                   aiStatus={analysis.ai_status}
                   modelUsed={analysis.model_used}
+                  provider={analysis.provider}
                   fallbackReason={analysis.fallback_reason}
                 />
 

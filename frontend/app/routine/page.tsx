@@ -30,6 +30,7 @@ export default function RoutinePage() {
     location,
     householdContext,
     selectedModel,
+    modelsLoaded,
     airQuality,
   } = useBreatheWise();
 
@@ -53,7 +54,7 @@ export default function RoutinePage() {
           longitude: airQuality?.location.longitude || location.longitude,
           household_context: householdContext,
           has_air_purifier: user?.has_air_purifier || false,
-          model_id: selectedModel,
+          model_id: selectedModel || undefined,
         },
         token
       );
@@ -89,8 +90,9 @@ export default function RoutinePage() {
   }, [token]);
 
   useEffect(() => {
+    if (!modelsLoaded) return;
     generateRoutine();
-  }, [generateRoutine]);
+  }, [generateRoutine, modelsLoaded]);
 
   useEffect(() => {
     loadSaved();
@@ -253,6 +255,7 @@ export default function RoutinePage() {
               <AiSourceBadge
                 aiStatus={routineEnv.ai_status}
                 modelUsed={routineEnv.model_used}
+                provider={routineEnv.provider}
                 fallbackReason={routineEnv.fallback_reason}
               />
             </div>

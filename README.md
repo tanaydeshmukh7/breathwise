@@ -9,7 +9,7 @@ BreatheWise is an environmental intelligence web platform designed for families,
 - **Frontend:** Next.js (App Router), React, TypeScript, Tailwind CSS, Framer Motion, Lucide React, Recharts
 - **Backend:** Python, FastAPI, Pydantic v2, Async API endpoints, Swagger (`/docs`)
 - **Database:** MongoDB Atlas via PyMongo Native Async API (`AsyncMongoClient`) with collection schema validators and indexes (plus a development-only in-memory fallback when `MONGODB_URI` is unset in `ENVIRONMENT=development`)
-- **AI Engine:** Google Gemini (`gemini-2.5-flash` default via official `google-genai` Python SDK, configurable via `AI_PROVIDER=gemini` and `GEMINI_MODEL`; optional legacy Hugging Face Qwen support retained)
+- **AI Engine:** Google Gemini (`gemini-3.5-flash-lite` default via official `google-genai` Python SDK, configurable via `AI_PROVIDER=gemini` and `GEMINI_MODEL`; optional legacy Hugging Face Qwen support retained)
 - **Environmental Telemetry:** Live **Open-Meteo Air Quality API**, **Open-Meteo Weather API**, and **Open-Meteo Geocoding API**, plus browser geolocation
 
 ## Key Engineering Principles
@@ -66,7 +66,7 @@ Edit `backend/.env` and set:
 - `MONGODB_URI`: Your MongoDB Atlas connection string (`mongodb+srv://...`)
 - `AI_PROVIDER`: `gemini`
 - `GEMINI_API_KEY`: Your Google Gemini API key
-- `GEMINI_MODEL`: Desired Gemini model (default: `gemini-2.5-flash`)
+- `GEMINI_MODEL`: Desired Gemini model (default: `gemini-3.5-flash-lite`)
 
 Start the API server:
 
@@ -112,7 +112,7 @@ npm run build
 1. Create a new **Web Service** pointing to `backend/`.
 2. Build Command: `pip install -r requirements.txt`
 3. Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Set environment variables: `ENVIRONMENT=production`, `DEV_MEMORY_DB_FALLBACK=false`, `ALLOWED_ORIGINS=https://your-vercel-domain.vercel.app`, `JWT_SECRET_KEY`, `MONGODB_URI`, `AI_PROVIDER=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-2.5-flash`.
+4. Set environment variables: `ENVIRONMENT=production`, `DEV_MEMORY_DB_FALLBACK=false`, `ALLOWED_ORIGINS=https://your-vercel-domain.vercel.app`, `JWT_SECRET_KEY`, `MONGODB_URI`, `AI_PROVIDER=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-3.5-flash-lite`.
 
 ### Frontend (Vercel)
 1. Import the repository into Vercel and set **Root Directory** to `frontend`.

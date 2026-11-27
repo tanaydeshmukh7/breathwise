@@ -86,7 +86,7 @@ async def test_gemini_fallback_when_api_key_missing():
     settings = Settings(
         AI_PROVIDER="gemini",
         GEMINI_API_KEY="",
-        GEMINI_MODEL="gemini-2.5-flash",
+        GEMINI_MODEL="gemini-3.5-flash-lite",
         ENVIRONMENT="development",
     )
     svc = AIService(settings)
@@ -94,7 +94,7 @@ async def test_gemini_fallback_when_api_key_missing():
         _sample_env(), {"household_context": "family_with_children"}
     )
     assert status_str == "rule_based_fallback"
-    assert model_used == "gemini-2.5-flash"
+    assert model_used == "gemini-3.5-flash-lite"
     assert "GEMINI_API_KEY" in (err or "")
     assert "129" in out.summary
     assert len(out.recommendations) == 3
@@ -105,7 +105,7 @@ async def test_gemini_valid_structured_responses_all_features(monkeypatch):
     settings = Settings(
         AI_PROVIDER="gemini",
         GEMINI_API_KEY="AIzaDummyTestKey",
-        GEMINI_MODEL="gemini-2.5-flash",
+        GEMINI_MODEL="gemini-3.5-flash-lite",
         ENVIRONMENT="development",
     )
     svc = AIService(settings)
@@ -128,6 +128,7 @@ async def test_gemini_valid_structured_responses_all_features(monkeypatch):
     )
     resp = MagicMock()
     resp.text = advisor_payload
+    resp.model_version = "gemini-3.5-flash-lite"
     mock_client, mock_gen = _mock_gemini_client(resp)
     monkeypatch.setattr(svc, "_create_gemini_client", lambda: mock_client)
 
@@ -136,9 +137,9 @@ async def test_gemini_valid_structured_responses_all_features(monkeypatch):
     )
     assert status_str == "live_gemini"
     assert err is None
-    assert model_used == "gemini-2.5-flash"
+    assert model_used == "gemini-3.5-flash-lite"
     assert out.recommendations[0].title == "Shift intense cardio indoors"
-    assert mock_gen.await_args.kwargs["model"] == "gemini-2.5-flash"
+    assert mock_gen.await_args.kwargs["model"] == "gemini-3.5-flash-lite"
 
     # Chat advisor with conversation history
     chat_out, chat_status, _, _ = await svc.chat_advisor(
@@ -199,7 +200,7 @@ async def test_gemini_malformed_output_falls_back_safely(monkeypatch):
     settings = Settings(
         AI_PROVIDER="gemini",
         GEMINI_API_KEY="AIzaDummyTestKey",
-        GEMINI_MODEL="gemini-2.5-flash",
+        GEMINI_MODEL="gemini-3.5-flash-lite",
         ENVIRONMENT="development",
     )
     svc = AIService(settings)
@@ -213,7 +214,7 @@ async def test_gemini_malformed_output_falls_back_safely(monkeypatch):
         _sample_env(), {"household_context": "general"}
     )
     assert status_str == "rule_based_fallback"
-    assert model_used == "gemini-2.5-flash"
+    assert model_used == "gemini-3.5-flash-lite"
     assert "Malformed AI output" in (err or "")
     assert out.risk_level == "high"
 
@@ -226,6 +227,8 @@ async def test_gemini_malformed_output_falls_back_safely(monkeypatch):
         (401, "Unauthorized", "Invalid or unauthorized GEMINI_API_KEY"),
         (429, "RESOURCE_EXHAUSTED", "rate limit or quota exhausted"),
         (404, "NOT_FOUND", "unavailable or not found"),
+        (503, "UNAVAILABLE", "temporarily unavailable"),
+        (504, "DEADLINE_EXCEEDED", "exceeded server deadline"),
     ],
 )
 async def test_gemini_api_errors_handled_without_substitution(
@@ -234,7 +237,7 @@ async def test_gemini_api_errors_handled_without_substitution(
     settings = Settings(
         AI_PROVIDER="gemini",
         GEMINI_API_KEY="AIzaDummyTestKey",
-        GEMINI_MODEL="gemini-2.5-flash",
+        GEMINI_MODEL="gemini-3.5-flash-lite",
         ENVIRONMENT="development",
     )
     svc = AIService(settings)
@@ -248,9 +251,41 @@ async def test_gemini_api_errors_handled_without_substitution(
         _sample_env(), {"household_context": "general"}
     )
     assert status_str == "rule_based_fallback"
-    assert model_used == "gemini-2.5-flash"
+    assert model_used == "gemini-3.5-flash-lite"
     assert expected_substr in (err or "")
     assert mock_gen.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_gemini_does_not_silently_substitute_requested_model(monkeypatch):
+    settings = Settings(
+        AI_PROVIDER="gemini",
+        GEMINI_API_KEY="AIzaDummyTestKey",
+        GEMINI_MODEL="gemini-3.5-flash-lite",
+        GEMINI_AVAILABLE_MODELS="gemini-3.5-flash-lite",
+        ENVIRONMENT="development",
+    )
+    svc = AIService(settings)
+    err_exc = genai_errors.APIError(
+        404, {"error": {"code": 404, "message": "NOT_FOUND", "status": "NOT_FOUND"}}
+    )
+    mock_client, mock_gen = _mock_gemini_client(err_exc)
+    monkeypatch.setattr(svc, "_create_gemini_client", lambda: mock_client)
+
+    _, status_str, model_used, err = await svc.analyze_air_quality(
+        _sample_env(),
+        {"household_context": "general"},
+        requested_model="gemini-2.5-pro",
+    )
+    assert status_str == "rule_based_fallback"
+    assert model_used == "gemini-2.5-pro"
+    assert "gemini-2.5-pro" in (err or "")
+    assert mock_gen.await_args.kwargs["model"] == "gemini-2.5-pro"
+
+    report = await svc.verify_ai_connection(requested_model="gemini-2.5-pro")
+    assert report["ok"] is False
+    assert report["http_status"] == 404
+    assert report["model_id"] == "gemini-2.5-pro"
 
 
 @pytest.mark.asyncio
@@ -258,7 +293,7 @@ async def test_gemini_timeout_handled_clearly(monkeypatch):
     settings = Settings(
         AI_PROVIDER="gemini",
         GEMINI_API_KEY="AIzaDummyTestKey",
-        GEMINI_MODEL="gemini-2.5-flash",
+        GEMINI_MODEL="gemini-3.5-flash-lite",
         GEMINI_TIMEOUT_SECONDS=10.0,
         ENVIRONMENT="development",
     )
@@ -270,7 +305,7 @@ async def test_gemini_timeout_handled_clearly(monkeypatch):
         _sample_env(), {"household_context": "general"}
     )
     assert status_str == "rule_based_fallback"
-    assert model_used == "gemini-2.5-flash"
+    assert model_used == "gemini-3.5-flash-lite"
     assert "timed out" in (err or "").lower()
     assert mock_gen.await_count == 1
 
@@ -280,21 +315,21 @@ async def test_verify_ai_connection_gemini_reports_status(monkeypatch):
     settings = Settings(
         AI_PROVIDER="gemini",
         GEMINI_API_KEY="AIzaDummyTestKey",
-        GEMINI_MODEL="gemini-2.5-flash",
+        GEMINI_MODEL="gemini-3.5-flash-lite",
         ENVIRONMENT="development",
     )
     svc = AIService(settings)
 
     resp = MagicMock()
     resp.text = '{"status": "ok", "service": "BreatheWise"}'
-    resp.model_version = "gemini-2.5-flash"
+    resp.model_version = "gemini-3.5-flash-lite"
     mock_client, _ = _mock_gemini_client(resp)
     monkeypatch.setattr(svc, "_create_gemini_client", lambda: mock_client)
 
     report = await svc.verify_ai_connection()
     assert report["ok"] is True
     assert report["http_status"] == 200
-    assert report["model_id"] == "gemini-2.5-flash"
+    assert report["model_id"] == "gemini-3.5-flash-lite"
     assert report["provider"] == "google_gemini"
     assert report["response"] == '{"status": "ok", "service": "BreatheWise"}'
 

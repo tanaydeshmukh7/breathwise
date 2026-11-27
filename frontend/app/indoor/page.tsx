@@ -22,7 +22,7 @@ const DEFAULT_CHECKLIST = [
 ];
 
 export default function IndoorPage() {
-  const { user, token, location, householdContext, selectedModel, airQuality } =
+  const { user, token, location, householdContext, selectedModel, modelsLoaded, airQuality } =
     useBreatheWise();
 
   const [hasPurifier, setHasPurifier] = useState(user?.has_air_purifier || false);
@@ -56,7 +56,7 @@ export default function IndoorPage() {
           has_air_purifier: hasPurifier,
           cooking_fuel: cookingFuel,
           uses_incense_or_dhoop: usesIncense,
-          model_id: selectedModel,
+          model_id: selectedModel || undefined,
         },
         token
       );
@@ -84,8 +84,9 @@ export default function IndoorPage() {
   ]);
 
   useEffect(() => {
+    if (!modelsLoaded) return;
     fetchAdvice();
-  }, [fetchAdvice]);
+  }, [fetchAdvice, modelsLoaded]);
 
   const verdictLabel = (v: StructuredIndoorOutput["ventilation_verdict"]) => {
     if (v === "open_windows")
@@ -228,6 +229,7 @@ export default function IndoorPage() {
                 <AiSourceBadge
                   aiStatus={advice.ai_status}
                   modelUsed={advice.model_used}
+                  provider={advice.provider}
                   fallbackReason={advice.fallback_reason}
                 />
 

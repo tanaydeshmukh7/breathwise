@@ -77,8 +77,8 @@ class Settings(BaseSettings):
 
     # Google Gemini API (official google-genai SDK)
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
-    GEMINI_AVAILABLE_MODELS: str = "gemini-2.5-flash,gemini-2.5-pro,gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_AVAILABLE_MODELS: str = "gemini-3.5-flash-lite,gemini-3.6-flash,gemini-3.1-flash-lite"
     GEMINI_TIMEOUT_SECONDS: float = 35.0
 
     # Hugging Face Inference Providers (retained for optional provider switching)
@@ -133,9 +133,9 @@ class Settings(BaseSettings):
     @property
     def active_ai_model(self) -> str:
         return (
-            self.GEMINI_MODEL
+            self.GEMINI_MODEL.strip()
             if self.active_ai_provider == "gemini"
-            else self.HF_MODEL
+            else self.HF_MODEL.strip()
         )
 
     @property

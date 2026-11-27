@@ -99,6 +99,8 @@ export const api = {
     request<{
       active_model: string;
       available_models: string[];
+      provider: string;
+      provider_key: string;
       configured: boolean;
     }>("/api/ai/models"),
 

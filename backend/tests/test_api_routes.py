@@ -3,6 +3,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.config import get_settings
 from app.main import app
 
 
@@ -163,19 +164,27 @@ async def test_live_open_meteo_and_ai_routes():
         assert loc.status_code == 200
         assert len(loc.json()["results"]) >= 1
 
+        models_res = await client.get("/api/ai/models")
+        assert models_res.status_code == 200
+        expected_model = get_settings().GEMINI_MODEL.strip()
+        assert models_res.json()["active_model"] == expected_model
+
         chat = await client.post(
             "/api/ai/chat",
             json={
-                "message": "Is it safe to walk outside today?",
+                "message": "Is it safe to walk today?",
                 "location_name": "Pune",
                 "latitude": 18.5204,
                 "longitude": 73.8567,
                 "household_context": "family_with_children",
+                "lifestyle_notes": "Morning walker, prefers metro commute",
+                "has_air_purifier": True,
             },
         )
         assert chat.status_code == 200
         chat_json = chat.json()
         assert chat_json["provider"] == "google_gemini"
+        assert chat_json["model_used"] == expected_model
         assert chat_json["ai_status"] in ("live_gemini", "rule_based_fallback")
         assert len(chat_json["result"]["recommendations"]) >= 1
 
@@ -190,12 +199,13 @@ async def test_live_open_meteo_and_ai_routes():
         )
         assert routine.status_code == 200
         assert routine.json()["provider"] == "google_gemini"
+        assert routine.json()["model_used"] == expected_model
         assert len(routine.json()["result"]["slots"]) >= 3
 
         verify = await client.get("/api/ai/verify")
         assert verify.status_code == 200
         assert verify.json()["provider"] == "google_gemini"
-        assert "model_id" in verify.json()
+        assert verify.json()["model_id"] == expected_model
 
 
 @pytest.mark.asyncio

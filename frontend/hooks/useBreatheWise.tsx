@@ -37,6 +37,9 @@ interface BreatheWiseContextValue {
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   availableModels: string[];
+  modelsLoaded: boolean;
+  activeProvider: string;
+  activeProviderKey: string;
   airQuality: AirQualityResponse | null;
   forecast: AirQualityForecastResponse | null;
   weather: WeatherResponse | null;
@@ -64,12 +67,17 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
   const [householdContext, setHouseholdContext] =
     useState<HouseholdContext>("general");
 
-  const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
+  const [selectedModel, setSelectedModel] = useState("");
   const [availableModels, setAvailableModels] = useState<string[]>([
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-3.1-flash-lite",
   ]);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [activeProvider, setActiveProvider] = useState(
+    "Google Gemini API (google-genai SDK)"
+  );
+  const [activeProviderKey, setActiveProviderKey] = useState("gemini");
 
   const [airQuality, setAirQuality] = useState<AirQualityResponse | null>(null);
   const [forecast, setForecast] = useState<AirQualityForecastResponse | null>(
@@ -121,9 +129,14 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
       .then((res) => {
         if (res.active_model) setSelectedModel(res.active_model);
         if (res.available_models?.length) setAvailableModels(res.available_models);
+        if (res.provider) setActiveProvider(res.provider);
+        if (res.provider_key) setActiveProviderKey(res.provider_key);
       })
       .catch(() => {
-        // fallback list already initialized
+        setSelectedModel("gemini-3.5-flash-lite");
+      })
+      .finally(() => {
+        setModelsLoaded(true);
       });
   }, []);
 
@@ -231,6 +244,9 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
         selectedModel,
         setSelectedModel,
         availableModels,
+        modelsLoaded,
+        activeProvider,
+        activeProviderKey,
         airQuality,
         forecast,
         weather,

@@ -23,7 +23,7 @@ const CATEGORIES = [
 ];
 
 export default function SustainablePage() {
-  const { token, location, householdContext, selectedModel, airQuality } =
+  const { token, location, householdContext, selectedModel, modelsLoaded, airQuality } =
     useBreatheWise();
   const [category, setCategory] = useState("all");
   const [data, setData] =
@@ -42,7 +42,7 @@ export default function SustainablePage() {
           longitude: airQuality?.location.longitude || location.longitude,
           household_context: householdContext,
           focus_category: category,
-          model_id: selectedModel,
+          model_id: selectedModel || undefined,
         },
         token
       );
@@ -70,8 +70,9 @@ export default function SustainablePage() {
   ]);
 
   useEffect(() => {
+    if (!modelsLoaded) return;
     loadAlternatives();
-  }, [loadAlternatives]);
+  }, [loadAlternatives, modelsLoaded]);
 
   const displayed =
     data?.result.alternatives.filter(
@@ -147,6 +148,7 @@ export default function SustainablePage() {
                 <AiSourceBadge
                   aiStatus={data.ai_status}
                   modelUsed={data.model_used}
+                  provider={data.provider}
                   fallbackReason={data.fallback_reason}
                 />
               </div>
